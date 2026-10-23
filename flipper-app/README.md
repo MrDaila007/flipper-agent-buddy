@@ -1,34 +1,40 @@
-# Claude Buddy
+# Claude Buddy (Flipper app)
 
-Claude Buddy turns your Flipper Zero into a physical remote and status display for Claude — with haptic, audio, and LED feedback for every significant event, and buttons that replace the keyboard for the actions you use most.
+Claude Buddy turns your Flipper Zero into a physical remote and status display for CLI coding agents — with haptic, audio, and LED feedback for every significant event, and buttons that replace the keyboard for common actions.
+
+Works with **Claude Code**, **Codex**, and **Cursor** host bridges, plus **Claude Desktop** over BLE.
+
+## Display
+
+| Element | Description |
+|---------|-------------|
+| **Host label** | Top-left: `Claude`, `Codex`, or `Cursor` (from bridge `state.host`) |
+| **Transport** | Top-right: `USB` or BLE signal bars |
+| **Session dot** | Filled circle when an agent session is active |
+| **Character** | Animated poses for idle, working, compaction, errors, permissions, context pressure |
+| **Ctx / Lim meters** | Optional usage bars when the host reports context/session pressure |
+| **Status text** | Primary line + optional subtext; long text scrolls as a marquee |
 
 ## Two modes
 
-Pick whichever one matches how you use Claude.  Switch on-device at any time: long-press **Right → MENU**, then the top row.
+Pick whichever one matches how you use Claude. Switch on-device at any time: long-press **Right → MENU**, then the top row.
 
 | Mode | Pairs with | Transport | What the buttons do |
-|---|---|---|---|
-| **Claude Code (USB/BLE)** *(default)* | Claude Code in a terminal, via the companion plugin + Python host bridge | USB or BLE (USB preferred when plugged in) | Forward keystrokes: Enter, Esc, voice dictation, Ctrl+C, slash-command menu, arrows, etc. |
-| **Claude Desktop (BLE)** | Claude Desktop app, directly over Anthropic's [Hardware Buddy](https://github.com/anthropics/claude-desktop-buddy) protocol (Nordic UART Service) | BLE only | Show live session status + transcript from Claude Desktop; Allow / Deny permission prompts on-device. |
+|------|------------|-----------|---------------------|
+| **Claude Code (USB/BLE)** *(default)* | Any CLI host bridge (Claude / Codex / Cursor) | USB or BLE | Forward keystrokes: Enter, Esc, voice dictation, Ctrl+C, command menu, arrows, etc. |
+| **Claude Desktop (BLE)** | Claude Desktop app via [Hardware Buddy](https://github.com/anthropics/claude-desktop-buddy) | BLE only | Live session status + transcript; Allow / Deny permission prompts on-device |
 
-Both modes give you the same LED / sound / vibration feedback for working, success, error, and permission states.
+Both modes share the same LED, sound, and vibration feedback patterns.
 
-## Mode 1 — Claude Code (USB/BLE)
+## Mode 1 — CLI agents (USB/BLE)
 
 **Setup**
 
 1. Install and launch Claude Buddy on your Flipper.
-2. Install the companion Claude Code plugin:
+2. Install the host bridge for your agent ([root README](../README.md#2-pick-your-cli-agent)).
+3. Start an agent session. The bridge connects automatically (or run `flipper-*-buddy/bin/flipper-bridge enable` for Codex/Cursor).
 
-   (bash)
-
-   claude plugin marketplace add jxw1102/flipper-claude-buddy
-
-   claude plugin install flipper-claude-buddy@flipper-claude-buddy
-
-3. Start a Claude Code session. The plugin launches the Python host bridge automatically.
-
-**Connection.** USB is used when the cable is plugged in; otherwise BLE. Switching is automatic.
+**Connection.** USB when the cable is plugged in; otherwise BLE (if supported on your host OS). Only one bridge should hold the serial port at a time.
 
 **Button map**
 
@@ -36,43 +42,52 @@ Both modes give you the same LED / sound / vibration feedback for working, succe
 |--------|--------|
 | UP | Start / stop voice dictation |
 | UP (hold) | Hold Space for voice input |
-| LEFT | Interrupt Claude (Esc) |
+| LEFT | Interrupt (Esc) |
 | LEFT (hold) | Send Ctrl+C |
-| RIGHT | Open slash command menu |
+| RIGHT | Open command menu |
 | RIGHT (hold) | Open info menu |
-| OK | Submit Enter (⏎) |
+| OK | Submit Enter |
 | OK (hold) | Type "yes" and submit |
-| DOWN | Send Down arrow (↓) |
+| DOWN | Send Down arrow |
 | DOWN (hold) | Toggle mute |
-| BACK | Send Backspace (⌫) |
+| BACK | Send Backspace |
 | BACK (hold) | Exit app |
 
 ## Mode 2 — Claude Desktop (BLE)
 
-This mode talks directly to the Claude Desktop app over BLE — no plugin, no Python bridge, pure BLE NUS.
+Talks directly to Claude Desktop over BLE — no plugin, no Python bridge.
 
 **Setup**
 
-1. On the Flipper, long-press **Right → MENU** and select **Claude Desktop (BLE)** in the top row.
-2. In the Claude Desktop app: **Help → Troubleshooting → Enable Developer Mode** (adds a Developer menu).
-3. **Developer → Open Hardware Buddy** and pick your Flipper from the scan list. Accept the macOS Bluetooth permission prompt the first time.
+1. On the Flipper, long-press **Right → MENU** and select **Claude Desktop (BLE)**.
+2. In Claude Desktop: **Help → Troubleshooting → Enable Developer Mode**.
+3. **Developer → Open Hardware Buddy** and select your Flipper. Accept the Bluetooth permission prompt.
 
-Once paired, Claude Desktop auto-reconnects whenever both sides are on.
-
-**What you see on the Flipper**
+**What you see**
 
 - Running / waiting session counts and heartbeat status
-- Recent transcript lines (scrollable under the TRANSCRIPT view)
-- Permission prompts as they happen — Allow or Deny on-device
+- Recent transcript lines (TRANSCRIPT view)
+- Permission prompts — Allow or Deny on-device
+- Host label shows **Claude** when connected
 
-**Button map** (keystroke buttons are inactive here, since Claude Desktop doesn't take keystrokes over this protocol)
+**Button map** (no keystroke forwarding over this protocol)
 
 | Button | Action |
-|---|---|
+|--------|--------|
 | RIGHT / RIGHT (hold) | Open info menu |
-| OK | Allow a permission prompt |
-| LEFT | Deny a permission prompt |
+| OK | Allow permission |
+| LEFT | Deny permission |
 | DOWN (hold) | Toggle mute |
 | BACK (hold) | Exit app |
 
 The in-app **HELP** page reflects whichever mode is active.
+
+## Build
+
+```bash
+# Requires ufbt: pip3 install ufbt
+ufbt build
+ufbt launch    # flash to connected Flipper (stop bridges first)
+```
+
+See [CHANGELOG.md](CHANGELOG.md) for release history.

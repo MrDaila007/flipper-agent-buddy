@@ -117,3 +117,59 @@ jobs:
         run: |
           test -x flipper-codex-buddy/scripts/install-codex-plugin.sh
           test -x flipper-codex-buddy/bin/flipper-bridge
+
+  cursor-host-bridge:
+    name: Cursor host bridge
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install test dependencies
+        run: pip install pytest pytest-asyncio pyserial pyserial-asyncio bleak
+
+      - name: Run tests
+        working-directory: flipper-cursor-buddy/host-bridge
+        env:
+          PYTHONPATH: .
+        run: pytest -q
+
+  cursor-plugin:
+    name: Cursor plugin
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Validate hooks manifest
+        run: |
+          python3 <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path("flipper-cursor-buddy")
+          hooks = json.loads((root / ".cursor" / "hooks.json").read_text(encoding="utf-8"))
+
+          assert hooks.get("version") == 1
+          assert "hooks" in hooks
+          required = {
+              "sessionStart", "sessionEnd", "beforeSubmitPrompt", "preToolUse",
+              "postToolUse", "preCompact", "stop",
+          }
+          missing = required - set(hooks["hooks"])
+          assert not missing, f"missing hooks: {missing}"
+          print("Cursor plugin validation passed")
+          PY
+
+      - name: Check install and bridge scripts are executable
+        run: |
+          chmod +x flipper-cursor-buddy/scripts/install-cursor-hooks.sh
+          chmod +x flipper-cursor-buddy/bin/flipper-bridge
+          test -x flipper-cursor-buddy/scripts/install-cursor-hooks.sh
+          test -x flipper-cursor-buddy/bin/flipper-bridge

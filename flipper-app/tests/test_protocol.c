@@ -135,6 +135,25 @@ static void test_parse_menu_empty(void) {
 }
 
 /* ---------------------------------------------------------------------------
+ * protocol_parse — MsgTypeUsage
+ * ------------------------------------------------------------------------- */
+
+static void test_parse_usage(void) {
+    const char* json =
+        "{\"v\":1,\"t\":\"usage\","
+        "\"d\":{\"ctx\":82,\"sess\":45,\"clvl\":2}}";
+    ProtocolMessage msg;
+    CHECK(protocol_parse(json, &msg) == true);
+    CHECK(msg.type == MsgTypeUsage);
+    CHECK(msg.has_usage_ctx == true);
+    CHECK(msg.usage_ctx == 82);
+    CHECK(msg.has_usage_sess == true);
+    CHECK(msg.usage_sess == 45);
+    CHECK(msg.has_usage_compact == true);
+    CHECK(msg.usage_compact == 2);
+}
+
+/* ---------------------------------------------------------------------------
  * protocol_parse — MsgTypeState
  * ------------------------------------------------------------------------- */
 
@@ -485,6 +504,7 @@ int main(void) {
     run_test("parse_menu_empty",                      test_parse_menu_empty);
 
     /* protocol_parse — state */
+    run_test("parse_usage",                           test_parse_usage);
     run_test("parse_state_true",                      test_parse_state_true);
     run_test("parse_state_false",                     test_parse_state_false);
 

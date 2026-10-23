@@ -35,7 +35,7 @@ class TestEncode:
         assert msg["d"] == {}
 
     def test_no_spaces_in_json(self):
-        # separators=(",", ":") — нет пробелов, экономим байты
+        # separators=(",", ":") — no spaces, saves bytes on the wire
         raw = protocol.encode("ping").rstrip(b"\n")
         assert b" " not in raw
 
@@ -163,6 +163,15 @@ class TestStatusMsg:
     def test_no_line2_key_when_empty(self):
         msg = json.loads(protocol.status_msg("L1", ""))
         assert "line2" not in msg["d"]
+
+
+class TestUsageMsg:
+    def test_basic(self):
+        msg = json.loads(protocol.usage_msg(context_pct=82, session_pct=45, compact_level=2))
+        assert msg["t"] == "usage"
+        assert msg["d"]["ctx"] == 82
+        assert msg["d"]["sess"] == 45
+        assert msg["d"]["clvl"] == 2
 
 
 # ---------------------------------------------------------------------------

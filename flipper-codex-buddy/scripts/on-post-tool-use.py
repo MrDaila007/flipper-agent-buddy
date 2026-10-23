@@ -27,10 +27,29 @@ def sound_for_tool(tool_name: str) -> str | None:
     return None  # unknown tools: silent
 
 
-def send_to_flipper(sound: str, text: str = "", subtext: str = "") -> None:
+def pose_for_tool(tool_name: str) -> str:
+    name = tool_name.lower()
+    if name in {"read", "glob", "grep"}:
+        return "reading"
+    if name in {"edit", "write", "apply_patch", "notebookedit"}:
+        return "editing"
+    if name in {"bash", "shell"}:
+        return "terminal"
+    if name in {"webfetch", "websearch"}:
+        return "searching"
+    if name in {"agent", "task"} or name.startswith("mcp__"):
+        return "delegating"
+    return "thinking"
+
+
+def send_to_flipper(sound: str, text: str = "", subtext: str = "", pose: str | None = None) -> None:
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    s.settimeout(1.0)
     s.connect(SOCKET_PATH)
-    msg = json.dumps({"action": "notify", "sound": sound, "vibro": False, "text": text, "subtext": subtext})
+    payload = {"action": "notify", "sound": sound, "vibro": False, "text": text, "subtext": subtext}
+    if pose:
+        payload["pose"] = pose
+    msg = json.dumps(payload)
     s.sendall(msg.encode())
     s.shutdown(socket.SHUT_WR)
     s.recv(4096)
@@ -61,9 +80,16 @@ def tool_detail(tool_name: str, hook_input: dict) -> str:
 def tool_failed(hook_input: dict) -> bool:
     """Best-effort failure detection across Codex tool response shapes."""
     response = hook_input.get("tool_response")
+    if isinstance(response, str):
+        try:
+            response = json.loads(response)
+        except json.JSONDecodeError:
+            return False
     if not isinstance(response, dict):
         return False
     if response.get("success") is False:
+        return True
+    if response.get("isError") is True:
         return True
     if response.get("status") in {"failed", "error"}:
         return True
@@ -123,12 +149,21 @@ def main():
         sys.exit(0)
 
     sound = sound_for_tool(tool_name)
-    if not sound:
-        sys.exit(0)
-
     detail = tool_detail(tool_name, hook_input)
     try:
-        send_to_flipper(sound, shown_name, detail)
+        send_to_flipper(sound or "none", shown_name, detail, pose_for_tool(tool_name))
+    except Exception:
+        pass
+
+    try:
+        import subprocess
+
+        subprocess.run(
+            [sys.executable, os.path.join(os.path.dirname(__file__), "context_usage.py"), "sync"],
+            input=json.dumps(hook_input).encode("utf-8"),
+            timeout=2,
+            check=False,
+        )
     except Exception:
         pass
 

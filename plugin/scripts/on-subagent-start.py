@@ -11,6 +11,7 @@ SOCKET_PATH = "/tmp/claude-flipper-bridge.sock"
 
 def send_display(text: str, subtext: str = "") -> None:
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    s.settimeout(1.0)
     s.connect(SOCKET_PATH)
     msg = json.dumps({"action": "display", "text": text, "subtext": subtext})
     s.sendall(msg.encode())

@@ -89,12 +89,8 @@ def main():
 
     # Dismissed on Flipper: defer to Codex's normal permission dialog.
     if status == "ask":
-        print(json.dumps({
-            "hookSpecificOutput": {
-                "hookEventName": "PermissionRequest",
-                "decision": {"behavior": "ask"},
-            }
-        }))
+        # No decision means Codex should show its normal approval prompt.
+        print("{}")
         sys.exit(0)
 
     # Only act on explicit user decisions from Flipper

@@ -112,7 +112,7 @@ class TestInputTargetFromPayload:
         assert t.window_id == "0x12345"
 
     def test_session_key_alone_is_not_enough(self):
-        # session_key по себе не считается «достаточным» для идентификации таргета
+        # session_key alone is not sufficient to identify a target
         t = InputTarget.from_payload({"session_key": "abc123"})
         assert t is None
 

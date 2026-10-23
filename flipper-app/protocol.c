@@ -63,6 +63,7 @@ static MsgType parse_type(const char* type_str) {
     if(strcmp(type_str, "menu") == 0) return MsgTypeMenu;
     if(strcmp(type_str, "state") == 0) return MsgTypeState;
     if(strcmp(type_str, "perm") == 0) return MsgTypePerm;
+    if(strcmp(type_str, "usage") == 0) return MsgTypeUsage;
     return MsgTypeUnknown;
 }
 
@@ -86,6 +87,7 @@ bool protocol_parse(const char* json_line, ProtocolMessage* msg) {
     switch(msg->type) {
     case MsgTypeNotify:
         json_get_string(d_start, "sound", msg->sound, sizeof(msg->sound));
+        json_get_string(d_start, "pose", msg->pose, sizeof(msg->pose));
         json_get_bool(d_start, "vibro", &msg->vibro);
         json_get_string(d_start, "text", msg->text, sizeof(msg->text));
         json_get_string(d_start, "sub", msg->text2, sizeof(msg->text2));
@@ -99,6 +101,9 @@ bool protocol_parse(const char* json_line, ProtocolMessage* msg) {
         break;
     case MsgTypeState:
         json_get_bool(d_start, "claude", &msg->claude_connected);
+        if(json_get_string(d_start, "host", msg->host_name, sizeof(msg->host_name))) {
+            msg->has_host = true;
+        }
         break;
     case MsgTypePerm:
         json_get_string(d_start, "tool", msg->text, sizeof(msg->text));
@@ -110,6 +115,29 @@ bool protocol_parse(const char* json_line, ProtocolMessage* msg) {
             if(json_get_int(d_start, "rssi", &rssi)) {
                 msg->has_rssi = true;
                 msg->rssi = (int16_t)rssi;
+            }
+        }
+        break;
+    case MsgTypeUsage:
+        {
+            int val = 0;
+            if(json_get_int(d_start, "ctx", &val)) {
+                msg->has_usage_ctx = true;
+                if(val < 0) val = 0;
+                if(val > 100) val = 100;
+                msg->usage_ctx = (uint8_t)val;
+            }
+            if(json_get_int(d_start, "sess", &val)) {
+                msg->has_usage_sess = true;
+                if(val < 0) val = 0;
+                if(val > 100) val = 100;
+                msg->usage_sess = (uint8_t)val;
+            }
+            if(json_get_int(d_start, "clvl", &val)) {
+                msg->has_usage_compact = true;
+                if(val < 0) val = 0;
+                if(val > 3) val = 3;
+                msg->usage_compact = (uint8_t)val;
             }
         }
         break;
