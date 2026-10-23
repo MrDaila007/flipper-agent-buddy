@@ -11,6 +11,7 @@ SOCKET_PATH = "/tmp/cursor-flipper-bridge.sock"
 
 def send_display(text: str, subtext: str = "") -> None:
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    s.settimeout(1.0)
     s.connect(SOCKET_PATH)
     msg = json.dumps({"action": "display", "text": text, "subtext": subtext})
     s.sendall(msg.encode())
@@ -21,21 +22,24 @@ def send_display(text: str, subtext: str = "") -> None:
 
 def main():
     if not os.path.exists(SOCKET_PATH):
-        sys.exit(0)
+        print('{"permission":"allow"}')
+        return
 
     try:
         hook_input = json.loads(sys.stdin.read())
     except (json.JSONDecodeError, EOFError):
-        sys.exit(0)
+        print('{"permission":"allow"}')
+        return
 
-    agent_type = hook_input.get("agent_type", "Agent")
+    agent_type = hook_input.get("subagent_type") or hook_input.get("agent_type") or "Agent"
 
     try:
         send_display(f"{agent_type} agent", "started")
     except Exception:
         pass
 
-    sys.exit(0)
+    # This hook observes startup; Cursor requires a valid permission response.
+    print('{"permission":"allow"}')
 
 
 if __name__ == "__main__":

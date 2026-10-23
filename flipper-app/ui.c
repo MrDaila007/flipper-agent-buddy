@@ -353,7 +353,11 @@ static int draw_usage_meters(Canvas* canvas, const StatusModel* m) {
 
 static void draw_pressure_overlay(Canvas* canvas, int cx, int cy, const StatusModel* m, uint8_t frame) {
     if(m->context_pct == CTX_PCT_UNKNOWN || m->context_pct < 70) return;
-    if(m->pose != PoseThinking && m->pose != PoseWorking) return;
+    if(m->pose != PoseThinking && m->pose != PoseWorking &&
+       m->pose != PoseReading && m->pose != PoseEditing &&
+       m->pose != PoseTerminal && m->pose != PoseSearching &&
+       m->pose != PoseDelegating)
+        return;
     draw_steam_puff(canvas, cx + 4, cy - 3, frame);
     draw_steam_puff(canvas, cx + 14, cy - 4, frame + 2);
 }
@@ -366,6 +370,11 @@ static void draw_claude(
     uint8_t frame,
     uint8_t compact_level,
     uint8_t context_pct) {
+    uint8_t activity_pose = pose;
+    // Activity variants reuse the established thinking/working facial motion,
+    // then add a small icon so each tool category remains recognizable.
+    if(pose == PoseReading || pose == PoseSearching || pose == PoseDelegating) pose = PoseThinking;
+    if(pose == PoseEditing || pose == PoseTerminal) pose = PoseWorking;
     int body_w = 18;
     int body_h = 10;
 
@@ -705,6 +714,30 @@ static void draw_claude(
         break;
     default:
         break;
+    }
+
+    if(activity_pose == PoseEditing) {
+        int phase = frame % 8;
+        canvas_draw_dot(canvas, cx + body_w + 2, cy - 4 - (phase < 4 ? 1 : 0));
+        if(frame % 4 < 2) {
+            canvas_draw_line(canvas, cx + body_w + 1, cy - 5, cx + body_w + 3, cy - 5);
+            canvas_draw_line(canvas, cx + body_w + 2, cy - 6, cx + body_w + 2, cy - 4);
+        }
+    } else if(activity_pose == PoseTerminal) {
+        canvas_set_font(canvas, FontSecondary);
+        canvas_draw_str(canvas, cx + body_w + 2, cy + 3, frame % 6 < 3 ? ">_" : "> ");
+    } else if(activity_pose == PoseSearching) {
+        int lx = cx + body_w + 3;
+        int ly = cy - 4 + (frame % 6 < 3 ? 0 : 1);
+        canvas_draw_circle(canvas, lx, ly, 2);
+        canvas_draw_line(canvas, lx + 2, ly + 2, lx + 4, ly + 4);
+    } else if(activity_pose == PoseDelegating) {
+        int phase = frame % 6;
+        canvas_draw_dot(canvas, cx + body_w + 2, cy - 5);
+        canvas_draw_dot(canvas, cx + body_w + 5, cy - 3);
+        if(phase < 3) canvas_draw_dot(canvas, cx + body_w + 8, cy - 5);
+        canvas_draw_line(canvas, cx + body_w + 3, cy - 4, cx + body_w + 4, cy - 4);
+        if(phase < 3) canvas_draw_line(canvas, cx + body_w + 6, cy - 4, cx + body_w + 7, cy - 4);
     }
 }
 

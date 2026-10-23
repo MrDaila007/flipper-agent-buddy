@@ -53,8 +53,10 @@ and `/bridge-status`.
 ## Codex hooks
 
 After installation, open `/hooks` in Codex and trust the plugin hook definition.
-The plugin handles `SessionStart`, `UserPromptSubmit`, `PermissionRequest`,
-`PostToolUse`, compaction, subagent lifecycle, and `Stop`.
+The plugin handles `SessionStart` (including forked threads), `SessionEnd`,
+`Interrupt`, `UserPromptSubmit`, `PermissionRequest`, `PostToolUse`, compaction,
+subagent lifecycle, and `Stop`. Session tracking uses Codex thread IDs, so
+resuming or compacting a thread does not create a duplicate bridge session.
 
 Codex hooks currently support one-shot allow/deny decisions. The Flipper
 "Always" choice is therefore treated as a one-shot allow in this plugin.

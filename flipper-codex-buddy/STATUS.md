@@ -1,6 +1,6 @@
 # Flipper Codex Buddy — status
 
-Last updated: 2026-07-10
+Last updated: 2026-10-23
 
 ## Done
 
@@ -18,6 +18,8 @@ Last updated: 2026-07-10
 - Install script: `scripts/install-codex-plugin.sh`
 - Bridge defaults to **enabled** when `PLUGIN_DATA/bridge-enabled` is missing
 - Python tests passing (`pytest` in `host-bridge/tests/`)
+- Current Codex `SessionEnd`, `Interrupt`, forked-session, and post-tool error hook support
+- Session tracking by Codex thread ID (resume and compaction are idempotent)
 
 ## Next
 

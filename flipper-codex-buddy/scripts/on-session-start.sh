@@ -59,7 +59,7 @@ if [ ! -S "$SOCKET" ]; then
         fi
     elif [ "$TRANSPORT" = "usb" ]; then
         # USB-only mode — require a USB device (macOS: cu.usbmodem*, Linux: ttyACM*)
-        if ! ls /dev/cu.usbmodem* /dev/ttyACM* 1>/dev/null 2>&1; then
+        if ! compgen -G '/dev/cu.usbmodem*' >/dev/null && ! compgen -G '/dev/ttyACM*' >/dev/null; then
             exit 0
         fi
     fi
@@ -127,7 +127,7 @@ if [ ! -S "$SOCKET" ]; then
         echo "$CURRENT_HASH" > "$MARKER"
     fi
 
-    nohup "$VENV_DIR/bin/python" -m bridge >> "$LOG" 2>&1 &
+    nohup "$VENV_DIR/bin/python" -m bridge </dev/null >> "$LOG" 2>&1 &
     echo $! > "$PIDFILE"
 
     for i in $(seq 1 30); do
@@ -141,25 +141,8 @@ if [ ! -S "$SOCKET" ]; then
     exit 0
 fi
 
-# Register the current Codex session before the bridge reports it connected so input
-# targeting is ready as soon as Flipper events arrive.
-python3 "$PLUGIN_ROOT/scripts/session-target.py" register_target "$SOCKET" >/dev/null 2>&1 || true
-
-# Increment session reference counter
-REFCOUNT_FILE="/tmp/codex-flipper-bridge.refcount"
-COUNT=$(cat "$REFCOUNT_FILE" 2>/dev/null || echo 0)
-echo $((COUNT + 1)) > "$REFCOUNT_FILE"
-
-PROJECT_DIR="$(pwd)"
-echo "{\"action\":\"codex_connect\",\"project_dir\":\"$PROJECT_DIR\"}" \
-    | nc -U "$SOCKET" 2>/dev/null || true
-
-# Show a clear Codex connection notification for every new session.
-# first connects to the bridge, so every new session gives the same clear
-# cue. Source info (New session / Resumed / After clear / …) replaces the
-# generic "Connected" subtext when available.
-SUBTEXT_DISPLAY="${SUBTEXT:-Connected}"
-echo "{\"action\":\"notify\",\"sound\":\"connect\",\"vibro\":true,\"text\":\"Codex\",\"subtext\":\"$SUBTEXT_DISPLAY\"}" \
-    | nc -U "$SOCKET" 2>/dev/null || true
+# Register the thread and input target together. Repeated starts after resume or
+# compaction are idempotent; the daemon tracks distinct session ids.
+printf '%s' "$PAYLOAD" | python3 "$PLUGIN_ROOT/scripts/session-target.py" connect_session "$SOCKET" >/dev/null 2>&1 || true
 
 exit 0

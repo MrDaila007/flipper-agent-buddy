@@ -71,7 +71,7 @@ if [ ! -S "$SOCKET" ]; then
         fi
     elif [ "$TRANSPORT" = "usb" ]; then
         # USB-only mode — require a USB device (macOS: cu.usbmodem*, Linux: ttyACM*)
-        if ! ls /dev/cu.usbmodem* /dev/ttyACM* 1>/dev/null 2>&1; then
+        if ! compgen -G '/dev/cu.usbmodem*' >/dev/null && ! compgen -G '/dev/ttyACM*' >/dev/null; then
             exit 0
         fi
     fi
@@ -113,7 +113,7 @@ if [ ! -S "$SOCKET" ]; then
         echo "$CURRENT_HASH" > "$MARKER"
     fi
 
-    nohup "$VENV_DIR/bin/python" -m bridge >> "$LOG" 2>&1 &
+    nohup "$VENV_DIR/bin/python" -m bridge </dev/null >> "$LOG" 2>&1 &
     echo $! > "$PIDFILE"
 
     for i in $(seq 1 30); do

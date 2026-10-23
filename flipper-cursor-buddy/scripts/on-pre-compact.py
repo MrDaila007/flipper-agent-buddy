@@ -13,6 +13,7 @@ PENDING_COMPACT_FLAG = "/tmp/cursor-flipper-pending-compact.flag"
 
 def send_to_flipper(sound: str, vibro: bool, text: str, subtext: str = "") -> None:
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    s.settimeout(1.0)
     s.connect(SOCKET_PATH)
     msg = json.dumps({"action": "notify", "sound": sound, "vibro": vibro, "text": text, "subtext": subtext})
     s.sendall(msg.encode())

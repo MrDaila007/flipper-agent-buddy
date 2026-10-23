@@ -8,6 +8,7 @@ PLUGIN_ROOT="${PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 export PLUGIN_ROOT
 
 if [ ! -S "$SOCKET" ]; then
+    printf '{"continue":true}\n'
     exit 0
 fi
 
@@ -22,4 +23,5 @@ fi
 echo '{"action":"display","text":"Thinking...","subtext":""}' \
     | nc -U "$SOCKET" 2>/dev/null &
 
+printf '{"continue":true}\n'
 exit 0

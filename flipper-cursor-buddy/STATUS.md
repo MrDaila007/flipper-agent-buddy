@@ -1,6 +1,6 @@
 # Flipper Cursor Buddy — status
 
-Last updated: 2026-07-10
+Last updated: 2026-10-23
 
 ## Done
 
@@ -9,6 +9,7 @@ Last updated: 2026-07-10
 - Host bridge with `/tmp/cursor-flipper-bridge.sock`, `cursor_connect`, and `HOST_TYPE=cursor`
 - Install script: `scripts/install-cursor-hooks.sh`
 - `preToolUse` permission flow with Cursor-native `permission` JSON output
+- Current subagent hook fields and required `preToolUse`/`beforeSubmitPrompt` responses
 - Post-compact signaling via pending flag on first `postToolUse` (Cursor has no `postCompact` hook)
 - Hardware verified: USB on Linux, host label **Cursor** in Flipper header, ping/pong stable
 - Python tests passing (`pytest` in `host-bridge/tests/`)

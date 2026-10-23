@@ -87,6 +87,7 @@ bool protocol_parse(const char* json_line, ProtocolMessage* msg) {
     switch(msg->type) {
     case MsgTypeNotify:
         json_get_string(d_start, "sound", msg->sound, sizeof(msg->sound));
+        json_get_string(d_start, "pose", msg->pose, sizeof(msg->pose));
         json_get_bool(d_start, "vibro", &msg->vibro);
         json_get_string(d_start, "text", msg->text, sizeof(msg->text));
         json_get_string(d_start, "sub", msg->text2, sizeof(msg->text2));

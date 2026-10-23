@@ -208,6 +208,17 @@ static SoundType sound_from_string(const char* name) {
     return SoundAlert;
 }
 
+static int pose_from_string(const char* name) {
+    if(strcmp(name, "thinking") == 0) return PoseThinking;
+    if(strcmp(name, "thinking") == 0) return PoseThinking;
+    if(strcmp(name, "reading") == 0) return PoseReading;
+    if(strcmp(name, "editing") == 0) return PoseEditing;
+    if(strcmp(name, "terminal") == 0) return PoseTerminal;
+    if(strcmp(name, "searching") == 0) return PoseSearching;
+    if(strcmp(name, "delegating") == 0) return PoseDelegating;
+    return -1;
+}
+
 static uint8_t host_from_string(const char* name) {
     if(!name || !name[0]) return HostTypeUnknown;
     if(strcmp(name, "codex") == 0) return HostTypeCodex;
@@ -377,15 +388,16 @@ static void process_message(App* app, ProtocolMessage* msg) {
     switch(msg->type) {
     case MsgTypeNotify: {
         SoundType snd = sound_from_string(msg->sound);
+        bool pose_only = strcmp(msg->sound, "none") == 0;
         bool is_voice = (snd == SoundVoiceStart || snd == SoundVoiceStartLed ||
                          snd == SoundVoiceStop || snd == SoundVoiceStopQuiet);
 
         // Non-LED sounds clear the working/compacting state (turn complete, error, interrupt, etc.)
-        if(snd != SoundLedWorking && snd != SoundAlert && snd != SoundLedCompact) {
+        if(!msg->pose[0] && snd != SoundLedWorking && snd != SoundAlert && snd != SoundLedCompact) {
             app->is_working = false;
         }
 
-        if(!app->muted) notify_play(app->notifications, snd,
+        if(!pose_only && !app->muted) notify_play(app->notifications, snd,
             app->is_working ? LedStateWorking : LedStateOff);
 
         if(snd == SoundVoiceStart || snd == SoundVoiceStartLed) {
@@ -407,6 +419,9 @@ static void process_message(App* app, ProtocolMessage* msg) {
         } else if(snd == SoundSessionEnd) {
             ui_set_pose(app->ui, PoseSleeping);
         }
+
+        int activity_pose = pose_from_string(msg->pose);
+        if(activity_pose >= 0) ui_set_pose(app->ui, (uint8_t)activity_pose);
 
         if(msg->text[0] && !is_voice) {
             if(msg->text2[0]) {

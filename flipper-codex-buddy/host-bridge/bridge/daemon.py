@@ -24,6 +24,7 @@ class Daemon:
         self._input: InputBackend = input_backend or create_input_backend()
         self._dictating = False
         self._codex_connected = False
+        self._sessions: set[str] = set()
         self._perm_future: asyncio.Future | None = None
         self._menu_sent = False
         self._stop_requested = asyncio.Event()
@@ -201,6 +202,12 @@ class Daemon:
             return {"status": "ok"}
 
         elif action == "codex_connect":
+            session_id = str(request.get("session_id") or "")
+            if session_id:
+                # Resume/compaction can send SessionStart again for the same thread.
+                self._sessions.add(session_id)
+            if request.get("session_key"):
+                self._register_target(request)
             # Update project dir if provided (may differ from bridge startup)
             project_dir = request.get("project_dir", "")
             if project_dir:
@@ -212,12 +219,30 @@ class Daemon:
             commands = self._load_commands()
             if commands and self.serial.connected:
                 await self.serial.send(protocol.menu_msg(commands))
+            if session_id:
+                source = request.get("source", "startup")
+                label = {
+                    "startup": "New session", "resume": "Resumed",
+                    "clear": "After clear", "compact": "After compaction",
+                    "fork": "Forked session",
+                }.get(source, "Connected")
+                await self.serial.send(protocol.notify_msg("connect", True, "Codex", label))
             return {"status": "ok"}
 
         elif action == "codex_disconnect":
+            session_id = str(request.get("session_id") or "")
+            if session_id:
+                self._sessions.discard(session_id)
+                self._release_target(str(request.get("session_key") or session_id))
+                if self._sessions:
+                    return {"status": "ok", "sessions": len(self._sessions)}
             await self._stop_space_repeat()
             self._codex_connected = False
+            if request.get("shutdown"):
+                await self.serial.send(protocol.notify_msg("session_end", True, "Session End", "Disconnected"))
             await self.serial.send(protocol.state_msg(False))
+            if request.get("shutdown"):
+                self._stop_requested.set()
             return {"status": "ok"}
 
         elif action == "bridge_enable":
@@ -526,6 +551,7 @@ class Daemon:
             "term_session_id": str(request.get("term_session_id", "")).strip(),
             "iterm_session_id": str(request.get("iterm_session_id", "")).strip(),
             "tty": str(request.get("tty", "")).strip(),
+            "window_id": str(request.get("window_id", "")).strip(),
         }
         if not target["session_key"]:
             return None
@@ -536,6 +562,7 @@ class Daemon:
                 target["term_session_id"],
                 target["iterm_session_id"],
                 target["tty"],
+                target["window_id"],
             )
         ):
             return None

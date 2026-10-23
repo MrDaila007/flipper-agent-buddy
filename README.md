@@ -15,8 +15,8 @@ The status header shows **Claude**, **Codex**, or **Cursor** in the top-left cor
 **You control the agent with physical buttons.**
 Interrupt a runaway task, submit a prompt, trigger voice dictation, or open the command menu — all without touching the keyboard.
 
-**The character reacts to context.**
-Animations and optional Ctx/Lim meters reflect tool use, compaction, permission outcomes, and context pressure.
+**The character reacts to each tool.**
+Reading, editing, terminal commands, searches, and delegated work each get their own animated pose. Compaction, permission outcomes, and context pressure also change the character and optional Ctx/Lim meters.
 
 ## Supported agents
 
@@ -27,7 +27,7 @@ Animations and optional Ctx/Lim meters reflect tool use, compaction, permission 
 | **Cursor** | `flipper-cursor-buddy/` | [Cursor README](flipper-cursor-buddy/README.md) | `/tmp/cursor-flipper-bridge.sock` |
 | **Claude Desktop** | *(none — built into FAP)* | [Desktop mode](#claude-desktop-ble) | BLE only |
 
-Each CLI agent ships its own hook scripts and Python host bridge. All bridges share the same Flipper application and serial protocol.
+The Claude Code, Codex, and Cursor CLI integrations use each agent's current hook and plugin formats. Each ships its own hook scripts and Python host bridge; all bridges share the same Flipper application and serial protocol.
 
 > **Important:** Only one bridge should use the Flipper USB serial port at a time. Stop or disable other bridges before switching agents.
 

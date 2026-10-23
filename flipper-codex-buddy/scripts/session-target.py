@@ -81,7 +81,7 @@ def detect_tty() -> str:
     return ""
 
 
-def build_target() -> dict[str, str]:
+def build_target(session_id: str = "") -> dict[str, str]:
     term_program = (os.environ.get("TERM_PROGRAM") or "").strip()
     target = {
         "app_name": TERM_PROGRAM_APP_NAMES.get(term_program, term_program),
@@ -94,7 +94,7 @@ def build_target() -> dict[str, str]:
         "window_id": (os.environ.get("WINDOWID") or "").strip(),
     }
     material = json.dumps(target, sort_keys=True, separators=(",", ":")).encode()
-    target["session_key"] = hashlib.sha1(material).hexdigest()[:16]
+    target["session_key"] = session_id or hashlib.sha1(material).hexdigest()[:16]
     return target
 
 
@@ -102,6 +102,7 @@ def send_action(socket_path: str, action: str, target: dict[str, str]) -> int:
     payload = {"action": action, **target}
     try:
         client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        client.settimeout(1.0)
         client.connect(socket_path)
         client.sendall(json.dumps(payload).encode())
         client.shutdown(socket.SHUT_WR)
@@ -113,9 +114,9 @@ def send_action(socket_path: str, action: str, target: dict[str, str]) -> int:
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) != 3 or argv[1] not in {"register_target", "release_target"}:
+    if len(argv) != 3 or argv[1] not in {"register_target", "release_target", "connect_session", "end_session"}:
         print(
-            "usage: session-target.py <register_target|release_target> <socket>",
+            "usage: session-target.py <register_target|release_target|connect_session|end_session> <socket>",
             file=sys.stderr,
         )
         return 2
@@ -124,7 +125,28 @@ def main(argv: list[str]) -> int:
     if not os.path.exists(socket_path):
         return 0
 
-    target = build_target()
+    try:
+        hook_input = json.load(sys.stdin)
+    except (ValueError, EOFError):
+        hook_input = {}
+    session_id = str(hook_input.get("session_id") or "")
+    action = argv[1]
+    # End hooks have a short deadline and may no longer have a controlling TTY.
+    if action == "end_session" and session_id:
+        target = {"session_key": session_id}
+    else:
+        target = build_target(session_id)
+
+    if action == "connect_session":
+        target.update({
+            "session_id": session_id or target["session_key"],
+            "project_dir": hook_input.get("cwd") or os.getcwd(),
+            "source": hook_input.get("source") or "startup",
+        })
+        return send_action(socket_path, "codex_connect", target)
+    if action == "end_session":
+        target.update({"session_id": session_id or target["session_key"], "shutdown": True})
+        return send_action(socket_path, "codex_disconnect", target)
     if not any(
         (
             target["app_name"],
@@ -135,7 +157,7 @@ def main(argv: list[str]) -> int:
     ):
         return 0
 
-    return send_action(socket_path, argv[1], target)
+    return send_action(socket_path, action, target)
 
 
 if __name__ == "__main__":

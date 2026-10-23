@@ -87,12 +87,8 @@ def main():
 
     # Dismissed on Flipper — defer to Claude's normal permission dialog
     if status == "ask":
-        print(json.dumps({
-            "hookSpecificOutput": {
-                "hookEventName": "PermissionRequest",
-                "decision": {"behavior": "ask"},
-            }
-        }))
+        # PermissionRequest accepts allow/deny only. Omit the decision to defer.
+        print("{}")
         sys.exit(0)
 
     # Only act on explicit user decisions from Flipper

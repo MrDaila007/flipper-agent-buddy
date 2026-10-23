@@ -11,6 +11,7 @@ SOCKET_PATH = "/tmp/claude-flipper-bridge.sock"
 
 def send_to_flipper(sound: str, text: str, subtext: str) -> None:
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    s.settimeout(1.0)
     s.connect(SOCKET_PATH)
     msg = json.dumps({"action": "notify", "sound": sound, "vibro": True, "text": text, "subtext": subtext})
     s.sendall(msg.encode())
@@ -22,7 +23,7 @@ def send_to_flipper(sound: str, text: str, subtext: str) -> None:
 def extract_subtext(hook_input: dict) -> str:
     """Build a short subtext from the elicitation payload."""
     # Prefer MCP server name if present
-    mcp = hook_input.get("mcp_server_name", "")
+    mcp = hook_input.get("server_name") or hook_input.get("mcp_server_name", "")
     if mcp:
         return mcp[:21]
     # Fall back to first line of message

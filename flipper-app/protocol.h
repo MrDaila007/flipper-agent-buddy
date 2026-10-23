@@ -35,6 +35,7 @@ typedef enum {
 typedef struct {
     MsgType type;
     char sound[32];
+    char pose[16];       // optional activity pose: reading/editing/terminal/searching/delegating
     bool vibro;
     char text[PROTOCOL_MAX_FIELD_LEN];   // line1
     char text2[PROTOCOL_MAX_FIELD_LEN];  // line2 (subtext)

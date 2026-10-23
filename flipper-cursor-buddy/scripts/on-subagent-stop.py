@@ -11,6 +11,7 @@ SOCKET_PATH = "/tmp/cursor-flipper-bridge.sock"
 
 def send_to_flipper(sound: str, text: str, subtext: str = "") -> None:
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    s.settimeout(1.0)
     s.connect(SOCKET_PATH)
     msg = json.dumps({"action": "notify", "sound": sound, "vibro": False, "text": text, "subtext": subtext})
     s.sendall(msg.encode())
@@ -30,13 +31,15 @@ def main():
         print("{}")
         return
 
-    agent_type = hook_input.get("agent_type", "Agent")
-    last_msg = hook_input.get("last_assistant_message", "").strip()
+    agent_type = hook_input.get("subagent_type") or hook_input.get("agent_type") or "Agent"
+    last_msg = (hook_input.get("summary") or hook_input.get("last_assistant_message") or "").strip()
     subtext = last_msg[:21] if last_msg else "stopped"
 
     try:
         # alert: single E5 blip + cyan flash, does NOT clear the working indicator
-        send_to_flipper("alert", f"{agent_type} agent", subtext)
+        status = hook_input.get("status", "completed")
+        sound = {"error": "error", "aborted": "interrupt"}.get(status, "alert")
+        send_to_flipper(sound, f"{agent_type} agent", subtext)
     except Exception:
         pass
 

@@ -57,6 +57,11 @@ typedef enum {
     PoseOverloaded,// context 78-91%: heavy steam, wide eyes
     PoseCritical,  // context 92%+: frantic shake, stacked alerts
     PoseRateLimited, // session/rate limit pressure
+    PoseReading,   // focused reading animation
+    PoseEditing,   // file editing animation
+    PoseTerminal,  // blinking terminal prompt
+    PoseSearching, // animated search lens
+    PoseDelegating,// linked dots for MCP/subagent work
 } CharacterPose;
 
 #define CTX_PCT_UNKNOWN 255

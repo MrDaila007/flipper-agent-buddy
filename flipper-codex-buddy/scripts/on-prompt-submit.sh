@@ -9,10 +9,11 @@ if [ ! -S "$SOCKET" ]; then
     exit 0
 fi
 
-# Refresh the active input target from the session that just submitted a prompt.
-python3 "${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-.}}/scripts/session-target.py" register_target "$SOCKET" >/dev/null 2>&1 || true
-
 PAYLOAD=$(cat)
+
+# Refresh the active input target from the session that just submitted a prompt.
+printf '%s' "$PAYLOAD" | python3 "${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-.}}/scripts/session-target.py" register_target "$SOCKET" >/dev/null 2>&1 || true
+
 if [ -n "$PAYLOAD" ]; then
     echo "$PAYLOAD" | python3 "${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-.}}/scripts/context_usage.py" sync >/dev/null 2>&1 || true
 fi
