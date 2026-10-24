@@ -8,9 +8,21 @@ import os
 import socket
 import sys
 from typing import Any
+from pathlib import Path
 
-SOCKET_PATH = os.environ.get("FLIPPER_SOCKET", "/tmp/codex-flipper-bridge.sock")
-STATE_PATH = os.environ.get("FLIPPER_CONTEXT_STATE", "/tmp/codex-flipper-context.json")
+try:
+    from runtime_paths import runtime_path, socket_path
+    _socket_default = socket_path()
+    _state_default = str(runtime_path("context.json"))
+except ModuleNotFoundError:  # direct import from a test/module loader
+    _runtime = Path(os.environ.get("FLIPPER_RUNTIME_DIR") or (
+        Path(os.environ["XDG_RUNTIME_DIR"]) / "flipper-codex-buddy"
+        if os.environ.get("XDG_RUNTIME_DIR") else f"/tmp/flipper-codex-buddy-{os.getuid()}"
+    ))
+    _socket_default = os.environ.get("FLIPPER_BRIDGE_SOCKET", str(_runtime / "bridge.sock"))
+    _state_default = str(_runtime / "context.json")
+SOCKET_PATH = os.environ.get("FLIPPER_SOCKET", _socket_default)
+STATE_PATH = os.environ.get("FLIPPER_CONTEXT_STATE", _state_default)
 
 
 def _clamp_pct(value: Any) -> int | None:

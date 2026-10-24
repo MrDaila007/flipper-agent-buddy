@@ -8,13 +8,20 @@ allowed-tools: Bash
 
 Send a notification to the connected Flipper Zero via the host bridge daemon.
 
-The bridge listens on a Unix socket at `/tmp/codex-flipper-bridge.sock`.
+The daemon listens on its user-private runtime socket. Set `SOCKET` before
+using the examples:
+
+```bash
+RUNTIME_DIR="${FLIPPER_RUNTIME_DIR:-${XDG_RUNTIME_DIR:+$XDG_RUNTIME_DIR/flipper-codex-buddy}}"
+RUNTIME_DIR="${RUNTIME_DIR:-/tmp/flipper-codex-buddy-$(id -u)}"
+SOCKET="${FLIPPER_BRIDGE_SOCKET:-$RUNTIME_DIR/bridge.sock}"
+```
 
 ## Notify (sound + vibration + two-line text)
 
 ```bash
 echo '{"action":"notify","sound":"SOUND","vibro":VIBRO,"text":"TITLE","subtext":"SUBTITLE"}' \
-  | nc -U /tmp/codex-flipper-bridge.sock
+  | nc -U "$SOCKET"
 ```
 
 - `SOUND` — one of the sound names below
@@ -45,19 +52,19 @@ echo '{"action":"notify","sound":"SOUND","vibro":VIBRO,"text":"TITLE","subtext":
 Task completed:
 ```bash
 echo '{"action":"notify","sound":"success","vibro":true,"text":"Done","subtext":"Tests passed"}' \
-  | nc -U /tmp/codex-flipper-bridge.sock
+  | nc -U "$SOCKET"
 ```
 
 Error occurred:
 ```bash
 echo '{"action":"notify","sound":"error","vibro":true,"text":"Build failed","subtext":""}' \
-  | nc -U /tmp/codex-flipper-bridge.sock
+  | nc -U "$SOCKET"
 ```
 
 Silent status update:
 ```bash
 echo '{"action":"notify","sound":"alert","vibro":false,"text":"Thinking...","subtext":""}' \
-  | nc -U /tmp/codex-flipper-bridge.sock
+  | nc -U "$SOCKET"
 ```
 
 ## Rules

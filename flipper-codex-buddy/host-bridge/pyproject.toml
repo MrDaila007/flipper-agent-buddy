@@ -12,6 +12,7 @@ dependencies = [
     "pyserial>=3.5",
     "pyserial-asyncio>=0.6",
     "bleak>=0.21",
+    "websockets>=14,<17",
 ]
 
 [project.scripts]

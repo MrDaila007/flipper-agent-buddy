@@ -486,13 +486,27 @@ static void process_message(App* app, ProtocolMessage* msg) {
                 strlcpy(app->last_perm_id, msg->perm_id, sizeof(app->last_perm_id));
             }
         } else {
+            strlcpy(app->last_perm_id, msg->perm_id, sizeof(app->last_perm_id));
             notify_play(app->notifications, SoundPerm, LedStateOff);
         }
         /* Desktop wire protocol has no "always" decision — hide the
          * toggle there. Bridge keeps it. */
-        ui_show_permission(app->ui, msg->text, msg->text2, /*allow_always*/ !desktop);
+        ui_show_permission(app->ui, msg->text, msg->text2, /*allow_always*/ !desktop && !msg->perm_id[0]);
         break;
     }
+
+    case MsgTypePermClear: {
+        ui_clear_choice(app->ui, msg->perm_id);
+        if(msg->perm_id[0] && strcmp(msg->perm_id, app->last_perm_id) == 0) {
+            app->last_perm_id[0] = '\0';
+            ui_back_to_status(app->ui);
+        }
+        break;
+    }
+
+    case MsgTypeChoice:
+        ui_show_choice(app->ui, msg->perm_id, msg->text, msg->text2, msg->menu_data);
+        break;
 
     case MsgTypeState:
         ui_set_claude_connected(app->ui, msg->claude_connected);
@@ -793,6 +807,19 @@ static void on_ui_event(UiEventType event, const char* data, void* context) {
         ui_back_to_status(app->ui);
         break;
 
+    case UiEventChoiceSelect:
+    case UiEventChoiceBack: {
+        char id[40];
+        int index = 0;
+        if(ui_get_choice(app->ui, id, sizeof(id), &index)) {
+            len = protocol_build_choice_resp(app->tx_buf, sizeof(app->tx_buf), id,
+                event == UiEventChoiceBack ? -1 : index);
+            transport_send(app->transport, app->tx_buf, len);
+        }
+        ui_back_to_status(app->ui);
+        break;
+    }
+
     case UiEventDismiss:
         ui_back_to_status(app->ui);
         break;
@@ -816,6 +843,10 @@ static void on_ui_event(UiEventType event, const char* data, void* context) {
             FURI_LOG_D(TAG, "tx perm (len=%d): %.*s", len, len, app->tx_buf);
             /* Tally stats (persisted) + fire Heart if decision was fast. */
             nus_state_on_permission_decision(&app->nus_state, &app->nus_stats, allow);
+        } else if(app->last_perm_id[0]) {
+            len = protocol_build_perm_resp_id(
+                app->tx_buf, sizeof(app->tx_buf), allow, esc, app->last_perm_id);
+            app->last_perm_id[0] = '\0';
         } else {
             len = protocol_build_perm_resp(
                 app->tx_buf, sizeof(app->tx_buf), allow, always, esc);

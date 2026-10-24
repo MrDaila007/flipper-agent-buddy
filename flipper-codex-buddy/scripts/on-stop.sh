@@ -3,8 +3,10 @@ set -euo pipefail
 
 # Stop hook: notify Flipper when Codex finishes a turn, with tool usage summary.
 
-SOCKET="/tmp/codex-flipper-bridge.sock"
-STATS="/tmp/codex-flipper-turn-stats.json"
+RUNTIME_DIR="${FLIPPER_RUNTIME_DIR:-${XDG_RUNTIME_DIR:+$XDG_RUNTIME_DIR/flipper-codex-buddy}}"
+RUNTIME_DIR="${RUNTIME_DIR:-/tmp/flipper-codex-buddy-$(id -u)}"
+SOCKET="${FLIPPER_BRIDGE_SOCKET:-$RUNTIME_DIR/bridge.sock}"
+STATS="$RUNTIME_DIR/turn-stats.json"
 
 if [ ! -S "$SOCKET" ]; then
     rm -f "$STATS"
@@ -13,7 +15,7 @@ if [ ! -S "$SOCKET" ]; then
 fi
 
 # Skip "Turn complete" if a direct Flipper notify was sent this turn
-SKIP_FLAG="/tmp/codex-flipper-skip-stop.flag"
+SKIP_FLAG="$RUNTIME_DIR/skip-stop.flag"
 if [ -f "$SKIP_FLAG" ]; then
     rm -f "$SKIP_FLAG" "$STATS"
     printf '{}\n'

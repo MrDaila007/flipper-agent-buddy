@@ -485,7 +485,53 @@ static void test_build_space_up(void) {
  * main
  * ------------------------------------------------------------------------- */
 
+static void test_correlated_permission_protocol(void) {
+    ProtocolMessage msg;
+    CHECK(protocol_parse("{\"t\":\"perm\",\"d\":{\"id\":\"request-a\",\"tool\":\"Codex\",\"detail\":\"Run tests?\"}}", &msg));
+    CHECK(msg.type == MsgTypePerm);
+    CHECK(strcmp(msg.perm_id, "request-a") == 0);
+    CHECK(protocol_parse("{\"t\":\"perm_clear\",\"d\":{\"id\":\"request-a\"}}", &msg));
+    CHECK(msg.type == MsgTypePermClear);
+    CHECK(strcmp(msg.perm_id, "request-a") == 0);
+    char buf[256];
+    int n = protocol_build_perm_resp_id(buf, sizeof(buf), true, false, "request-a");
+    CHECK(n == (int)strlen(buf));
+    CHECK(strstr(buf, "\"id\":\"request-a\"") != NULL);
+    CHECK(strstr(buf, "\"allow\":true") != NULL);
+    CHECK(strstr(buf, "\"always\":false") != NULL);
+    CHECK(protocol_build_perm_resp_id(buf, 4, true, false, "request-a") == 0);
+    CHECK(protocol_build_perm_resp_id(buf, sizeof(buf), true, false, "") == 0);
+    CHECK(protocol_build_perm_resp_id(NULL, sizeof(buf), true, false, "a") == 0);
+    n = protocol_build_pong(buf, sizeof(buf));
+    CHECK(n > 0);
+    CHECK(strstr(buf, "\"perm_ids\":true") != NULL);
+}
+
+static void test_choice_protocol(void) {
+    ProtocolMessage msg;
+    CHECK(protocol_parse("{\"t\":\"choice\",\"d\":{\"id\":\"view-a\",\"tool\":\"Question\",\"text\":\"Use \\\"A\\\"?\",\"items\":\"1. A|2. B\"}}", &msg));
+    CHECK(msg.type == MsgTypeChoice);
+    CHECK(strcmp(msg.perm_id, "view-a") == 0);
+    CHECK(strcmp(msg.text2, "Use \"A\"?") == 0);
+    CHECK(strcmp(msg.menu_data, "1. A|2. B") == 0);
+    char buf[256];
+    int n = protocol_build_choice_resp(buf, sizeof(buf), "view-a", 17);
+    CHECK(n == (int)strlen(buf));
+    CHECK(strstr(buf, "\"id\":\"view-a\"") != NULL);
+    CHECK(strstr(buf, "\"index\":17") != NULL);
+    CHECK(protocol_build_choice_resp(buf, sizeof(buf), "view-a", -1) > 0);
+    CHECK(strstr(buf, "\"index\":-1") != NULL);
+    CHECK(protocol_build_choice_resp(buf, 4, "view-a", 0) == 0);
+    CHECK(protocol_build_choice_resp(buf, sizeof(buf), "", 0) == 0);
+    CHECK(protocol_build_choice_resp(buf, sizeof(buf), "view-a", 256) == 0);
+    CHECK(protocol_build_choice_resp(buf, sizeof(buf), "view-a", -2) == 0);
+    CHECK(protocol_build_pong(buf, sizeof(buf)) > 0);
+    CHECK(strstr(buf, "\"choice_ids\":true") != NULL);
+}
+
 int main(void) {
+    run_test("choice_protocol", test_choice_protocol);
+    run_test("correlated_permission_protocol", test_correlated_permission_protocol);
     printf("protocol.c unit tests\n");
     printf("=====================\n");
 

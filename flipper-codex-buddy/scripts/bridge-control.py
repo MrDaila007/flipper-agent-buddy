@@ -14,9 +14,13 @@ import time
 from pathlib import Path
 
 
-SOCKET = "/tmp/codex-flipper-bridge.sock"
-PIDFILE = "/tmp/codex-flipper-bridge.pid"
-LOG = "/tmp/codex-flipper-bridge.log"
+RUNTIME_DIR = Path(os.environ.get("FLIPPER_RUNTIME_DIR") or (
+    Path(os.environ["XDG_RUNTIME_DIR"]) / "flipper-codex-buddy"
+    if os.environ.get("XDG_RUNTIME_DIR") else f"/tmp/flipper-codex-buddy-{os.getuid()}"
+))
+SOCKET = os.environ.get("FLIPPER_BRIDGE_SOCKET", str(RUNTIME_DIR / "bridge.sock"))
+PIDFILE = os.environ.get("FLIPPER_BRIDGE_PIDFILE", str(RUNTIME_DIR / "bridge.pid"))
+LOG = os.environ.get("FLIPPER_BRIDGE_LOG", str(RUNTIME_DIR / "bridge.log"))
 
 
 def _plugin_root() -> Path:
@@ -108,8 +112,14 @@ def _ensure_venv() -> Path:
 
 
 def _start_bridge() -> int:
+    _ensure_runtime_dir()
     venv_dir = _ensure_venv()
-    log_file = open(LOG, "a", encoding="utf-8")
+    old_umask = os.umask(0o077)
+    try:
+        log_file = open(LOG, "a", encoding="utf-8")
+    finally:
+        os.umask(old_umask)
+    os.chmod(LOG, 0o600)
     proc = subprocess.Popen(
         [str(venv_dir / "bin" / "python"), "-m", "bridge"],
         stdout=log_file,
@@ -118,6 +128,14 @@ def _start_bridge() -> int:
     )
     Path(PIDFILE).write_text(f"{proc.pid}\n", encoding="utf-8")
     return proc.pid
+
+
+def _ensure_runtime_dir() -> None:
+    RUNTIME_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
+    info = RUNTIME_DIR.lstat()
+    if (not RUNTIME_DIR.is_dir() or RUNTIME_DIR.is_symlink()
+            or info.st_uid != os.getuid() or info.st_mode & 0o077):
+        raise RuntimeError(f"Runtime directory must be private and user-owned: {RUNTIME_DIR}")
 
 
 def _stop_bridge() -> bool:

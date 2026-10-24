@@ -14,6 +14,8 @@ typedef enum {
     MsgTypeMenu,
     MsgTypeState,
     MsgTypePerm,
+    MsgTypePermClear,
+    MsgTypeChoice,
     MsgTypeUsage,
     // Flipper -> Host
     MsgTypeCmd,
@@ -45,7 +47,7 @@ typedef struct {
     char host_name[8];     // "claude", "codex", "cursor" (from state message)
     bool has_rssi;
     int16_t rssi;
-    /* Anthropic NUS protocol additions (zero/empty when not applicable):
+    /* Permission correlation (Bridge + NUS) and NUS-only additions:
      *   perm_id     — id of the pending permission prompt, echoed back on
      *                 the user's decision
      *   pending_ack — cmd name (e.g. "status", "owner") that the GUI thread
@@ -91,6 +93,8 @@ int protocol_build_space_up(char* buf, int buf_size);
 int protocol_build_down(char* buf, int buf_size);
 int protocol_build_pong(char* buf, int buf_size);
 int protocol_build_perm_resp(char* buf, int buf_size, bool allow, bool always, bool esc);
+int protocol_build_perm_resp_id(char* buf, int buf_size, bool allow, bool esc, const char* id);
+int protocol_build_choice_resp(char* buf, int buf_size, const char* id, int index);
 int protocol_build_interrupt(char* buf, int buf_size);
 int protocol_build_backspace(char* buf, int buf_size);
 int protocol_build_yes(char* buf, int buf_size);

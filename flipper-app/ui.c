@@ -1085,7 +1085,14 @@ static void menu_draw(Canvas* canvas, void* model) {
     canvas_clear(canvas);
 
     // ── Header ──
-    draw_header(canvas, "COMMANDS", false);
+    draw_header(canvas, m->choice_id[0] ? m->choice_title : "COMMANDS", false);
+
+    if(m->choice_id[0]) {
+        char lines[2][32];
+        canvas_set_font(canvas, FontSecondary);
+        int count = wrap_text(canvas, m->choice_prompt, 122, lines, 2);
+        for(int i = 0; i < count; i++) canvas_draw_str(canvas, 3, 17 + i * 8, lines[i]);
+    }
 
     if(m->count == 0) {
         // Empty state with bordered message
@@ -1094,9 +1101,9 @@ static void menu_draw(Canvas* canvas, void* model) {
         canvas_draw_str_aligned(canvas, 64, 28, AlignCenter, AlignCenter, "No commands yet");
         canvas_draw_str_aligned(canvas, 64, 40, AlignCenter, AlignCenter, "Start Claude Code");
     } else {
-        const int visible = 5;
+        const int visible = m->choice_id[0] ? 3 : 5;
         const int item_h = 8;
-        const int list_y = 12;
+        const int list_y = m->choice_id[0] ? 29 : 12;
 
         // Scroll window so selected item is always visible
         int start = 0;
@@ -1126,8 +1133,8 @@ static void menu_draw(Canvas* canvas, void* model) {
 
     // ── Footer ──
     draw_footer_sep(canvas);
-    hint_ok(canvas, "Send");
-    hint_back(canvas, "Back");
+    hint_ok(canvas, m->choice_id[0] ? "Choose" : "Send");
+    hint_back(canvas, m->choice_id[0] ? "Later" : "Back");
 }
 
 static bool menu_input(InputEvent* event, void* context) {
@@ -1136,6 +1143,18 @@ static bool menu_input(InputEvent* event, void* context) {
     if(event->type != InputTypeShort && event->type != InputTypeRepeat) return false;
 
     MenuModel* m = view_get_model(ui->menu_view);
+
+    if(m->choice_id[0] && m->choice_submitted) return true;
+
+    if(m->choice_id[0] && (event->key == InputKeyOk || event->key == InputKeyBack)) {
+        if(event->type != InputTypeShort || (event->key == InputKeyOk && m->count == 0)) return true;
+        m->choice_submitted = true;
+        view_commit_model(ui->menu_view, false);
+        if(ui->event_callback) ui->event_callback(
+            event->key == InputKeyOk ? UiEventChoiceSelect : UiEventChoiceBack,
+            NULL, ui->event_context);
+        return true;
+    }
 
     if(event->key == InputKeyUp) {
         if(m->count > 0) m->index = (m->index > 0) ? m->index - 1 : m->count - 1;
@@ -1847,6 +1866,7 @@ UiState* ui_alloc(Gui* gui) {
     view_set_context(ui->menu_view, ui);
     {
         MenuModel* m = view_get_model(ui->menu_view);
+        memset(m, 0, sizeof(*m));
         for(int i = 0; i < DEFAULT_MENU_COUNT && i < MAX_MENU_ITEMS; i++) {
             strncpy(m->items[i], default_menu_items[i], MAX_MENU_ITEM_LEN - 1);
             m->items[i][MAX_MENU_ITEM_LEN - 1] = '\0';
@@ -1922,7 +1942,9 @@ void ui_show_status(UiState* ui, const char* text, bool connected) {
         m->host_type = HostTypeUnknown;
     }
     view_commit_model(ui->status_view, true);
-    if(ui->current_view != ViewIdMenu && ui->current_view != ViewIdInfo) {
+    /* Background status/notify traffic must not hide an actionable approval. */
+    if(ui->current_view != ViewIdMenu && ui->current_view != ViewIdInfo &&
+       ui->current_view != ViewIdPerm) {
         ui->current_view = ViewIdStatus;
         view_dispatcher_switch_to_view(ui->view_dispatcher, ViewIdStatus);
     }
@@ -1950,7 +1972,10 @@ void ui_show_status2(UiState* ui, const char* text, const char* subtext, bool co
         m->host_type = HostTypeUnknown;
     }
     view_commit_model(ui->status_view, true);
-    if(ui->current_view != ViewIdMenu && ui->current_view != ViewIdInfo) {
+    /* Notifications update the status model underneath the permission view,
+     * but the user must keep seeing the request until they answer it. */
+    if(ui->current_view != ViewIdMenu && ui->current_view != ViewIdInfo &&
+       ui->current_view != ViewIdPerm) {
         ui->current_view = ViewIdStatus;
         view_dispatcher_switch_to_view(ui->view_dispatcher, ViewIdStatus);
     }
@@ -2059,6 +2084,8 @@ void ui_update_menu(UiState* ui, const char* pipe_delimited) {
     MenuModel* m = view_get_model(ui->menu_view);
     m->count = 0;
     m->index = 0;
+    m->choice_id[0] = '\0';
+    m->choice_submitted = false;
 
     const char* p = pipe_delimited;
     while(*p && m->count < MAX_MENU_ITEMS) {
@@ -2075,6 +2102,37 @@ void ui_update_menu(UiState* ui, const char* pipe_delimited) {
     }
 
     view_commit_model(ui->menu_view, true);
+}
+
+void ui_show_choice(UiState* ui, const char* id, const char* title, const char* prompt, const char* items) {
+    if(!ui || !id || !id[0] || !items || !items[0]) return;
+    ui_update_menu(ui, items);
+    MenuModel* m = view_get_model(ui->menu_view);
+    strlcpy(m->choice_id, id, sizeof(m->choice_id));
+    strlcpy(m->choice_title, title ? title : "Question", sizeof(m->choice_title));
+    strlcpy(m->choice_prompt, prompt ? prompt : "Choose answer", sizeof(m->choice_prompt));
+    view_commit_model(ui->menu_view, true);
+    ui->current_view = ViewIdMenu;
+    view_dispatcher_switch_to_view(ui->view_dispatcher, ViewIdMenu);
+}
+
+bool ui_get_choice(UiState* ui, char* id, size_t id_size, int* index) {
+    if(!ui || !id || !id_size || !index) return false;
+    MenuModel* m = view_get_model(ui->menu_view);
+    if(!m->choice_id[0]) return false;
+    strlcpy(id, m->choice_id, id_size);
+    *index = m->index;
+    return true;
+}
+
+void ui_clear_choice(UiState* ui, const char* id) {
+    if(!ui || !id || !id[0]) return;
+    MenuModel* m = view_get_model(ui->menu_view);
+    if(strcmp(m->choice_id, id) != 0) return;
+    m->choice_id[0] = '\0';
+    m->count = 0;
+    view_commit_model(ui->menu_view, true);
+    if(ui->current_view == ViewIdMenu) ui_back_to_status(ui);
 }
 
 void ui_show_permission(UiState* ui, const char* tool, const char* detail, bool allow_always) {

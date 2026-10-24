@@ -5,11 +5,12 @@ import json
 import os
 from pathlib import Path
 import socket
+from runtime_paths import runtime_path, socket_path
 
-SOCKET_PATH = os.environ.get("FLIPPER_BRIDGE_SOCKET", "/tmp/codex-flipper-bridge.sock")
+SOCKET_PATH = socket_path()
 STATE_FILES = (
-    "/tmp/codex-flipper-turn-stats.json",
-    "/tmp/codex-flipper-skip-stop.flag",
+    runtime_path("turn-stats.json"),
+    runtime_path("skip-stop.flag"),
 )
 
 

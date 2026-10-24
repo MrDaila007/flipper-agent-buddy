@@ -1,4 +1,4 @@
-"""Main daemon: routes messages between Flipper serial and Codex hooks IPC."""
+"""Routes Flipper to the shared Codex attention queue or explicit legacy input."""
 
 import asyncio
 import json
@@ -10,18 +10,28 @@ from . import config, protocol
 from .hook_ipc import HookIPC
 from .serial_conn import SerialConnection
 from .transport import Transport
-from .input import InputBackend, create_backend as create_input_backend
+from .input import InputBackend, NullInputBackend, create_backend as create_input_backend
+from .agent import AgentBackend
+from .agent_codex import CodexAppServer
+from .agent_control import AgentControl
 from .voice import DictationBackend, create_backend as create_dictation_backend
 
 log = logging.getLogger(__name__)
 
 
 class Daemon:
-    def __init__(self, transport: Transport, dictation: DictationBackend | None = None, input_backend: InputBackend | None = None):
+    def __init__(self, transport: Transport, dictation: DictationBackend | None = None, input_backend: InputBackend | None = None, agent_backend: AgentBackend | None = None):
         self.serial = SerialConnection(transport)
         self.ipc = HookIPC()
         self._dictation: DictationBackend = dictation or create_dictation_backend()
-        self._input: InputBackend = input_backend or create_input_backend()
+        if config.CONTROL_BACKEND not in {"app-server", "keyboard"}:
+            raise ValueError("FLIPPER_CONTROL_BACKEND must be app-server or keyboard")
+        # Explicitly injected keyboard backends retain compatibility for callers.
+        native = agent_backend is not None or (input_backend is None and config.CONTROL_BACKEND == "app-server")
+        self._input: InputBackend = input_backend or (NullInputBackend() if native else create_input_backend())
+        self.agent_control = AgentControl(
+            agent_backend or CodexAppServer(config.CODEX_APP_SERVER_SOCKET), self.serial.send,
+        ) if native else None
         self._dictating = False
         self._codex_connected = False
         self._sessions: set[str] = set()
@@ -40,6 +50,12 @@ class Daemon:
         msg_type = msg.get("t", "")
         data = msg.get("d", {})
         log.debug("Flipper RX: type=%s data=%s", msg_type, data)
+        if self.agent_control and msg_type in {"hello", "pong"}:
+            self.agent_control.set_capabilities(data)
+
+        if self.agent_control and msg_type not in {"hello", "pong"}:
+            self.agent_control.dispatch(msg)
+            return
 
         if msg_type == "hello":
             bt_name = data.get("bt", "")
@@ -70,6 +86,8 @@ class Daemon:
             else:
                 log.warning("No commands loaded — menu not sent")
             self._menu_sent = True
+            if self.agent_control:
+                self.agent_control.dispatch({"t": "cmd", "d": {"text": "Refresh sessions"}})
 
         elif msg_type == "cmd":
             text = data.get("text", "")
@@ -170,9 +188,31 @@ class Daemon:
                     await self.serial.send(menu_bytes)
                 if self._codex_connected:
                     await self.serial.send(protocol.state_msg(True))
+                if self.agent_control:
+                    self.agent_control.dispatch({"t": "cmd", "d": {"text": "Refresh sessions"}})
 
     async def _handle_ipc_action(self, request: dict) -> dict:
         action = request.get("action", "")
+
+        if self.agent_control:
+            if action == "attention_status":
+                from dataclasses import asdict
+                return {
+                    "status": "ok", "flipper_ready": self.agent_control._perm_ids,
+                    "choice_ready": self.agent_control._choice_ids,
+                    "session_count": len(self.agent_control.sessions),
+                    "requests": [asdict(r) for r in self.agent_control.attention.values()],
+                    "recent": list(self.agent_control.backend.attention_history),
+                }
+            if action in {"agent_sessions", "agent_select", "agent_status", "agent_interrupt"}:
+                return await self.agent_control.action(action, str(request.get("session_id") or ""))
+            if action == "permission_request":
+                # Desktop retains approval ownership in this prototype.
+                return {"status": "ask"}
+            if action in {"notify", "display", "usage", "codex_connect", "codex_disconnect",
+                          "register_target", "release_target"}:
+                # Uncorrelated hook events must not replace the selected session.
+                return {"status": "ignored", "reason": "app-server controls session state"}
 
         if action == "notify":
             if self._perm_future and not self._perm_future.done():
@@ -321,6 +361,8 @@ class Daemon:
         2. ``skills/<name>/SKILL.md`` — ``name`` frontmatter becomes ``/<name>``
         3. ``flipper-commands.txt`` for optional manual menu additions
         """
+        if self.agent_control:
+            return self.agent_control.menu
         commands: set[str] = set(self.BUILTIN_COMMANDS)
 
         home_codex = Path.home() / ".codex"
@@ -484,6 +526,8 @@ class Daemon:
         """Wait for Flipper app to take over CDC, then send a ping.
         The actual state (menu, claude status) is sent on first pong or hello."""
         self._menu_sent = False
+        if self.agent_control:
+            self.agent_control.invalidate_display()
         await asyncio.sleep(2.0)
         if self.serial.connected:
             await self.serial.send_ping()
@@ -600,7 +644,8 @@ class Daemon:
         return released
 
     async def run(self):
-        await self._dictation.discover()
+        if not self.agent_control:
+            await self._dictation.discover()
         await self.ipc.start()
 
         if await self.serial.connect():
@@ -608,8 +653,12 @@ class Daemon:
             self.serial._ping_task = asyncio.create_task(self.serial.ping_loop())
             await self._send_initial_state()
 
-        asyncio.create_task(self.serial.reconnect_loop())
-        asyncio.create_task(self._dictation_sync_loop())
+        tasks = [asyncio.create_task(self.serial.reconnect_loop())]
+        if self.agent_control:
+            tasks.append(asyncio.create_task(self.agent_control.monitor()))
+            log.info("Native agent control: %s", config.CODEX_APP_SERVER_SOCKET)
+        else:
+            tasks.append(asyncio.create_task(self._dictation_sync_loop()))
 
         log.info("=" * 60)
         log.info("Bridge daemon started")
@@ -619,6 +668,11 @@ class Daemon:
         except asyncio.CancelledError:
             pass
         finally:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            if self.agent_control:
+                await self.agent_control.close()
             await self._stop_space_repeat()
             # Await the transport close so the Flipper sees a clean BLE
             # disconnect before this process exits. Without this, the next

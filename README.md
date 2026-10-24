@@ -69,9 +69,9 @@ cd flipper-app && ufbt build
 ufbt launch
 ```
 
-Copy the `.fap` to `apps/USB/` on the SD card, or flash via `ufbt launch`.
+Copy the `.fap` to `apps/Bluetooth/` on the SD card, or flash via `ufbt launch`.
 
-Launch **Applications → USB → Claude Buddy** on the Flipper. You should hear the startup fanfare when the transport connects.
+Launch **Applications → Bluetooth → Claude Buddy** on the Flipper. You should hear the startup fanfare when the transport connects.
 
 ### 2. Pick your CLI agent
 

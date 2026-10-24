@@ -3,7 +3,9 @@ set -euo pipefail
 
 # UserPromptSubmit hook: show "Thinking..." on Flipper when user sends a prompt
 
-SOCKET="/tmp/codex-flipper-bridge.sock"
+RUNTIME_DIR="${FLIPPER_RUNTIME_DIR:-${XDG_RUNTIME_DIR:+$XDG_RUNTIME_DIR/flipper-codex-buddy}}"
+RUNTIME_DIR="${RUNTIME_DIR:-/tmp/flipper-codex-buddy-$(id -u)}"
+SOCKET="${FLIPPER_BRIDGE_SOCKET:-$RUNTIME_DIR/bridge.sock}"
 
 if [ ! -S "$SOCKET" ]; then
     exit 0

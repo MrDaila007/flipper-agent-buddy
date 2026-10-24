@@ -38,7 +38,7 @@ def notify_msg(sound: str, vibro: bool = True, text: str = "", subtext: str = ""
 
 
 def state_msg(claude_connected: bool = False) -> bytes:
-    return encode("state", {"claude": claude_connected})
+    return encode("state", {"claude": claude_connected, "host": "codex"})
 
 
 def status_msg(line1: str, line2: str = "") -> bytes:
@@ -59,10 +59,16 @@ def menu_msg(items: list[str]) -> bytes:
     return encode("menu", {"items": "|".join(items)})
 
 
-def perm_msg(tool: str, detail: str = "") -> bytes:
+def choice_msg(view_id: str, title: str, prompt: str, items: list[str]) -> bytes:
+    return encode("choice", {"id": view_id, "tool": title[:21], "text": prompt[:63], "items": "|".join(items)})
+
+
+def perm_msg(tool: str, detail: str = "", request_id: str = "") -> bytes:
     d: dict = {"tool": tool[:21]}
     if detail:
-        d["detail"] = detail[:21]
+        d["detail"] = detail[:63] if request_id else detail[:21]
+    if request_id:
+        d["id"] = request_id
     return encode("perm", d)
 
 

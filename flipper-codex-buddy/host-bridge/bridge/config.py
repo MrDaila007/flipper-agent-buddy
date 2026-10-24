@@ -5,8 +5,12 @@ import sys
 import tempfile
 from pathlib import Path
 
+RUNTIME_DIR = Path(os.environ.get("FLIPPER_RUNTIME_DIR") or (
+    Path(os.environ["XDG_RUNTIME_DIR"]) / "flipper-codex-buddy"
+    if os.environ.get("XDG_RUNTIME_DIR") else f"/tmp/flipper-codex-buddy-{os.getuid()}"
+))
 SOCKET_PATH = os.environ.get(
-    "FLIPPER_BRIDGE_SOCKET", "/tmp/codex-flipper-bridge.sock"
+    "FLIPPER_BRIDGE_SOCKET", str(RUNTIME_DIR / "bridge.sock")
 )
 
 SERIAL_BAUD = 115200
@@ -18,6 +22,14 @@ PING_INTERVAL = 5.0
 DICTATION_POLL_INTERVAL = 2.0
 
 SPACE_REPEAT_INTERVAL = 0.01
+
+# Native commands are the default. Keyboard injection requires explicit opt-in.
+CONTROL_BACKEND = os.environ.get("FLIPPER_CONTROL_BACKEND", "app-server")
+CODEX_APP_SERVER_SOCKET = os.environ.get(
+    "FLIPPER_CODEX_SOCKET",
+    str(Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex")))
+        / "app-server-control" / "app-server-control.sock"),
+)
 
 # ---------------------------------------------------------------------------
 # Dictation backend
@@ -81,6 +93,9 @@ FLIPPER_ADV_UUID = "00003082-0000-1000-8000-00805f9b34fb"
 # BT_DEVICE_NAME is a fallback for the rare case where the advertisement
 # does not include service UUIDs (e.g. OS-level advertisement caching).
 BT_DEVICE_NAME   = os.environ.get("FLIPPER_BT_NAME", "Flipper")
+BT_DEVICE_ADDRESS = os.environ.get("FLIPPER_BT_ADDRESS", "").strip().lower()
+_default_pairing = "0" if BT_DEVICE_ADDRESS else "1"
+BT_REQUIRE_PAIRING = os.environ.get("FLIPPER_BT_REQUIRE_PAIRING", _default_pairing).lower() not in {"0", "false", "no", "off"}
 BT_SCAN_TIMEOUT  = float(os.environ.get("FLIPPER_BT_SCAN_TIMEOUT", "10"))
 BT_WRITE_CHUNK   = 128  # max bytes per BLE write; capped to negotiated MTU-3 at runtime
 

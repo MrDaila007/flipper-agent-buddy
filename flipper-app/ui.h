@@ -22,6 +22,8 @@ typedef enum {
     UiEventOpenMenu,
     UiEventMenuSelect,
     UiEventMenuBack,
+    UiEventChoiceSelect,
+    UiEventChoiceBack,
     UiEventDismiss,
     UiEventExitApp,
     UiEventPermAllow,
@@ -104,6 +106,10 @@ typedef struct {
     int index;
     int count;
     char items[MAX_MENU_ITEMS][MAX_MENU_ITEM_LEN];
+    char choice_id[40];
+    char choice_title[22];
+    char choice_prompt[64];
+    bool choice_submitted;
 } MenuModel;
 
 typedef struct {
@@ -158,6 +164,9 @@ void ui_set_pose(UiState* ui, uint8_t pose);
 void ui_set_usage(UiState* ui, uint8_t context_pct, uint8_t session_pct, uint8_t compact_level, bool update_compact);
 void ui_set_transport_mode(UiState* ui, bool is_bt);
 void ui_update_menu(UiState* ui, const char* pipe_delimited);
+void ui_show_choice(UiState* ui, const char* id, const char* title, const char* prompt, const char* items);
+bool ui_get_choice(UiState* ui, char* id, size_t id_size, int* index);
+void ui_clear_choice(UiState* ui, const char* id);
 void ui_show_permission(UiState* ui, const char* tool, const char* detail, bool allow_always);
 void ui_show_info(UiState* ui);
 void ui_back_to_status(UiState* ui);

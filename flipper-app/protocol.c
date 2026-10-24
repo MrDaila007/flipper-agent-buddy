@@ -12,13 +12,26 @@ static bool json_get_string(const char* json, const char* key, char* out, int ou
     const char* start = strstr(json, pattern);
     if(!start) return false;
     start += strlen(pattern);
-    const char* end = strchr(start, '"');
-    if(!end) return false;
-    int len = end - start;
-    if(len >= out_size) len = out_size - 1;
-    memcpy(out, start, len);
-    out[len] = '\0';
-    return true;
+    int len = 0;
+    while(*start) {
+        char c = *start++;
+        if(c == '"') {
+            out[len] = '\0';
+            return true;
+        }
+        if(c == '\\') {
+            if(!*start) break;
+            c = *start++;
+            if(c == 'n') c = '\n';
+            else if(c == 'r') c = '\r';
+            else if(c == 't') c = '\t';
+            else if(c == 'b') c = '\b';
+            else if(c == 'f') c = '\f';
+        }
+        if(len < out_size - 1) out[len++] = c;
+    }
+    out[0] = '\0';
+    return false;
 }
 
 
@@ -63,6 +76,8 @@ static MsgType parse_type(const char* type_str) {
     if(strcmp(type_str, "menu") == 0) return MsgTypeMenu;
     if(strcmp(type_str, "state") == 0) return MsgTypeState;
     if(strcmp(type_str, "perm") == 0) return MsgTypePerm;
+    if(strcmp(type_str, "perm_clear") == 0) return MsgTypePermClear;
+    if(strcmp(type_str, "choice") == 0) return MsgTypeChoice;
     if(strcmp(type_str, "usage") == 0) return MsgTypeUsage;
     return MsgTypeUnknown;
 }
@@ -99,6 +114,12 @@ bool protocol_parse(const char* json_line, ProtocolMessage* msg) {
     case MsgTypeMenu:
         json_get_string(d_start, "items", msg->menu_data, sizeof(msg->menu_data));
         break;
+    case MsgTypeChoice:
+        json_get_string(d_start, "id", msg->perm_id, sizeof(msg->perm_id));
+        json_get_string(d_start, "tool", msg->text, sizeof(msg->text));
+        json_get_string(d_start, "text", msg->text2, sizeof(msg->text2));
+        json_get_string(d_start, "items", msg->menu_data, sizeof(msg->menu_data));
+        break;
     case MsgTypeState:
         json_get_bool(d_start, "claude", &msg->claude_connected);
         if(json_get_string(d_start, "host", msg->host_name, sizeof(msg->host_name))) {
@@ -108,6 +129,10 @@ bool protocol_parse(const char* json_line, ProtocolMessage* msg) {
     case MsgTypePerm:
         json_get_string(d_start, "tool", msg->text, sizeof(msg->text));
         json_get_string(d_start, "detail", msg->text2, sizeof(msg->text2));
+        json_get_string(d_start, "id", msg->perm_id, sizeof(msg->perm_id));
+        break;
+    case MsgTypePermClear:
+        json_get_string(d_start, "id", msg->perm_id, sizeof(msg->perm_id));
         break;
     case MsgTypePing:
         {
@@ -236,7 +261,9 @@ int protocol_build_space_up(char* buf, int buf_size) {
 }
 
 int protocol_build_pong(char* buf, int buf_size) {
-    return build_simple(buf, buf_size, "pong");
+    if(!buf || buf_size <= 0) return 0;
+    int n = snprintf(buf, buf_size, "{\"v\":1,\"t\":\"pong\",\"d\":{\"perm_ids\":true,\"choice_ids\":true}}\n");
+    return (n > 0 && n < buf_size) ? n : 0;
 }
 
 int protocol_build_interrupt(char* buf, int buf_size) {
@@ -279,4 +306,23 @@ int protocol_build_perm_resp(char* buf, int buf_size, bool allow, bool always, b
         allow ? "true" : "false",
         always ? "true" : "false",
         esc ? "true" : "false");
+}
+
+int protocol_build_perm_resp_id(char* buf, int buf_size, bool allow, bool esc, const char* id) {
+    if(!buf || buf_size <= 0 || !id || !id[0] || strlen(id) >= 40) return 0;
+    char escaped[80];
+    json_escape_into(escaped, escaped + sizeof(escaped), id);
+    int n = snprintf(buf, buf_size,
+        "{\"v\":1,\"t\":\"perm_resp\",\"d\":{\"id\":\"%s\",\"allow\":%s,\"always\":false,\"esc\":%s}}\n",
+        escaped, allow ? "true" : "false", esc ? "true" : "false");
+    return (n > 0 && n < buf_size) ? n : 0;
+}
+
+int protocol_build_choice_resp(char* buf, int buf_size, const char* id, int index) {
+    if(!buf || buf_size <= 0 || !id || !id[0] || strlen(id) >= 40 || index < -1 || index >= 256) return 0;
+    char escaped[80];
+    json_escape_into(escaped, escaped + sizeof(escaped), id);
+    int n = snprintf(buf, buf_size,
+        "{\"v\":1,\"t\":\"choice_resp\",\"d\":{\"id\":\"%s\",\"index\":%d}}\n", escaped, index);
+    return (n > 0 && n < buf_size) ? n : 0;
 }

@@ -5,9 +5,10 @@ import json
 import os
 import socket
 import sys
+from runtime_paths import runtime_path, socket_path
 
-SOCKET_PATH = "/tmp/codex-flipper-bridge.sock"
-STATS_PATH = "/tmp/codex-flipper-turn-stats.json"
+SOCKET_PATH = socket_path()
+STATS_PATH = str(runtime_path("turn-stats.json"))
 
 # Map tool names (or prefixes) to sound names.
 # Evaluated in order — first match wins.
@@ -125,7 +126,7 @@ def main():
         cmd = hook_input.get("tool_input", {}).get("command", "")
         if SOCKET_PATH in cmd:
             try:
-                open("/tmp/codex-flipper-skip-stop.flag", "w").close()
+                runtime_path("skip-stop.flag").touch()
             except Exception:
                 pass
             sys.exit(0)

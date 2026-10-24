@@ -128,6 +128,7 @@ class TestStateMsg:
         msg = json.loads(protocol.state_msg(True))
         assert msg["t"] == "state"
         assert msg["d"]["claude"] is True
+        assert msg["d"]["host"] == "codex"
 
     def test_connected_false(self):
         msg = json.loads(protocol.state_msg(False))

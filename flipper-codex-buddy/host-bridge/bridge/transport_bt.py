@@ -19,6 +19,9 @@ Install dependency:  pip install bleak   (or: pip install ".[bt]")
 
 import asyncio
 import logging
+import os
+import re
+import stat
 
 from . import config
 from .transport import Transport
@@ -50,13 +53,20 @@ class BtTransport(Transport):
 
         adv_uuid = config.FLIPPER_ADV_UUID.lower()
         name_prefix = config.BT_DEVICE_NAME
+        pinned_address = config.BT_DEVICE_ADDRESS or self._load_trusted_address()
+        request_pairing = config.BT_REQUIRE_PAIRING and not pinned_address
+        if not pinned_address:
+            log.warning("BT security: FLIPPER_BT_ADDRESS is unset; relying on advertised UUID/exact name")
 
         def _is_flipper(device, adv_data) -> bool:
+            if pinned_address:
+                return device.address.lower() == pinned_address
             # Primary: 0xFEAF is broadcast in every Flipper advertisement packet.
             if adv_uuid in [u.lower() for u in adv_data.service_uuids]:
                 return True
-            # Fallback: name prefix, for OS-level ad caches that strip service UUIDs.
-            return bool(name_prefix and device.name and device.name.startswith(name_prefix))
+            # Fallback for OS-level ad caches that strip service UUIDs. Exact
+            # matching prevents unrelated devices named "Flipper ...".
+            return bool(name_prefix and device.name == name_prefix)
 
         log.info(
             "BT: scanning for Flipper (UUID %s or name prefix %r, timeout %.0fs)…",
@@ -71,7 +81,10 @@ class BtTransport(Transport):
             return False
 
         log.info("BT: found %s (%s)", device.name, device.address)
-        self._client = BleakClient(device, disconnected_callback=self._on_disconnect)
+        self._client = BleakClient(
+            device, disconnected_callback=self._on_disconnect,
+            pair=request_pairing,
+        )
         try:
             await self._client.connect()
         except Exception as e:
@@ -104,7 +117,44 @@ class BtTransport(Transport):
         self._closed = False
         self._rx_buf.clear()
         log.info("BT: connected to %s", device.name)
+        if not pinned_address and config.BT_REQUIRE_PAIRING:
+            self._remember_trusted_address(device.address)
         return True
+
+    @staticmethod
+    def _address_file():
+        return config.RUNTIME_DIR / "trusted-flipper-address"
+
+    @classmethod
+    def _load_trusted_address(cls):
+        path = cls._address_file()
+        try:
+            info = path.lstat()
+            if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
+                    or stat.S_IMODE(info.st_mode) & 0o077):
+                raise RuntimeError(f"Unsafe BLE trust file: {path}")
+            address = path.read_text(encoding="ascii").strip().lower()
+            if not re.fullmatch(r"(?:[0-9a-f]{2}:){5}[0-9a-f]{2}", address):
+                raise RuntimeError(f"Invalid BLE address in trust file: {path}")
+            return address
+        except FileNotFoundError:
+            return ""
+
+    @classmethod
+    def _remember_trusted_address(cls, address):
+        path = cls._address_file()
+        normalized = address.strip().lower()
+        if not re.fullmatch(r"(?:[0-9a-f]{2}:){5}[0-9a-f]{2}", normalized):
+            raise RuntimeError("Cannot pin invalid BLE address")
+        path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        parent = path.parent.lstat()
+        if (not stat.S_ISDIR(parent.st_mode) or parent.st_uid != os.getuid()
+                or stat.S_IMODE(parent.st_mode) & 0o077):
+            raise RuntimeError(f"BLE trust directory must be private: {path.parent}")
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "w", encoding="ascii") as handle:
+            handle.write(normalized + "\n")
+        log.info("BT: pinned paired Flipper address %s", normalized)
 
     async def readline(self) -> bytes:
         """Block until a complete \\n-terminated line arrives via BLE notify."""

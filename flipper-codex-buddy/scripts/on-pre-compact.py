@@ -5,8 +5,9 @@ import json
 import os
 import socket
 import sys
+from runtime_paths import socket_path
 
-SOCKET_PATH = "/tmp/codex-flipper-bridge.sock"
+SOCKET_PATH = socket_path()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 

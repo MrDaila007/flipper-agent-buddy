@@ -3,9 +3,17 @@ set -euo pipefail
 
 # Codex SessionStart hook: ensure bridge is running, then notify Flipper.
 
-SOCKET="/tmp/codex-flipper-bridge.sock"
-PIDFILE="/tmp/codex-flipper-bridge.pid"
-LOG="/tmp/codex-flipper-bridge.log"
+RUNTIME_DIR="${FLIPPER_RUNTIME_DIR:-${XDG_RUNTIME_DIR:+$XDG_RUNTIME_DIR/flipper-codex-buddy}}"
+RUNTIME_DIR="${RUNTIME_DIR:-/tmp/flipper-codex-buddy-$(id -u)}"
+SOCKET="${FLIPPER_BRIDGE_SOCKET:-$RUNTIME_DIR/bridge.sock}"
+PIDFILE="${FLIPPER_BRIDGE_PIDFILE:-$RUNTIME_DIR/bridge.pid}"
+LOG="${FLIPPER_BRIDGE_LOG:-$RUNTIME_DIR/bridge.log}"
+if [ -L "$RUNTIME_DIR" ] || { [ -e "$RUNTIME_DIR" ] && [ ! -O "$RUNTIME_DIR" ]; }; then
+    echo "Flipper runtime directory must be an owned real directory: $RUNTIME_DIR" >&2
+    exit 1
+fi
+mkdir -p -m 700 "$RUNTIME_DIR"
+chmod 700 "$RUNTIME_DIR"
 
 # Read hook payload from stdin and extract source for display subtext.
 PAYLOAD=$(cat)
@@ -35,6 +43,21 @@ VENV_DIR="$PLUGIN_DATA/venv"
 MARKER="$VENV_DIR/.installed-hash"
 BRIDGE_STATE_FILE="${FLIPPER_BRIDGE_ENABLED_FILE:-$PLUGIN_DATA/bridge-enabled}"
 CURRENT_HASH=$(cat "$BRIDGE_DIR/pyproject.toml" "$BRIDGE_DIR"/bridge/*.py 2>/dev/null | md5 -q 2>/dev/null || cat "$BRIDGE_DIR/pyproject.toml" "$BRIDGE_DIR"/bridge/*.py 2>/dev/null | md5sum | cut -d' ' -f1 || echo "none")
+
+# Stop the prior shared-/tmp daemon once, so it releases BLE before migration.
+LEGACY_SOCKET="/tmp/codex-flipper-bridge.sock"
+if [ "$SOCKET" != "$LEGACY_SOCKET" ] && [ -S "$LEGACY_SOCKET" ]; then
+    if python3 -c 'import os,socket,stat,sys; s=os.stat(sys.argv[1]); sys.exit(0 if stat.S_ISSOCK(s.st_mode) and s.st_uid == os.getuid() and not (s.st_mode & 0o077) else 1)' "$LEGACY_SOCKET" 2>/dev/null; then
+        printf '{"action":"shutdown"}\n' | nc -U "$LEGACY_SOCKET" >/dev/null 2>&1 || true
+        for _ in $(seq 1 30); do
+            [ -S "$LEGACY_SOCKET" ] || break
+            sleep 0.1
+        done
+    fi
+fi
+
+mkdir -p -m 700 "$RUNTIME_DIR"
+chmod 700 "$RUNTIME_DIR"
 
 # Codex plugin options are configured through FLIPPER_* environment variables.
 # Fall back to the previously auto-detected Bluetooth name when unset.

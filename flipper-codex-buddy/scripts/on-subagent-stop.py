@@ -5,8 +5,9 @@ import json
 import os
 import socket
 import sys
+from runtime_paths import socket_path
 
-SOCKET_PATH = "/tmp/codex-flipper-bridge.sock"
+SOCKET_PATH = socket_path()
 
 
 def send_to_flipper(sound: str, text: str, subtext: str = "") -> None:
