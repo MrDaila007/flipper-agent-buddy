@@ -1,0 +1,9 @@
+Flipper Agent Buddy
+
+This independent project includes software derived from Flipper Claude Buddy,
+copyright (c) 2026 jxw1102. The original MIT license notice is retained in
+LICENSE and applies to the portions covered by that license.
+
+Flipper Agent Buddy is independently maintained. Its universal agent
+architecture, shared bridge core, and agent adapters are developed in this
+repository.

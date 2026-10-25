@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install Flipper Cursor Buddy hooks into the repository .cursor/hooks.json.
+# Install the Flipper Agent Buddy Cursor adapter hooks into .cursor/hooks.json.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -51,4 +51,4 @@ echo "Next steps:"
 echo "  1. Open Cursor Settings → Hooks and confirm hooks are loaded"
 echo "  2. Trust this workspace if prompted"
 echo "  3. Start a new agent session"
-echo "  4. Use: flipper-cursor-buddy/bin/flipper-bridge status"
+echo "  4. Use: flipper-cursor-buddy/bin/flipper-agent-cursor-bridge status"

@@ -86,7 +86,7 @@ typedef struct {
     char text[64];    // primary status line
     char subtext[22]; // secondary info line (empty = hide; Bridge only)
     bool connected;         // serial/flipper connected
-    bool claude_connected;  // claude code session active
+    bool agent_connected;   // host-side coding agent is active
     bool muted;             // sound mute active (shown as indicator in header)
     bool space_hold_active; // true while Up long-press is held for hold-space input
     uint8_t pose;           // CharacterPose
@@ -94,7 +94,8 @@ typedef struct {
     uint8_t context_pct;    // 0-100, CTX_PCT_UNKNOWN when unknown
     uint8_t session_pct;    // 0-100 rate-limit pressure, CTX_PCT_UNKNOWN when unknown
     uint8_t compact_level;  // 0=off, 1-3 compaction intensity
-    uint8_t host_type;      // HostType — bridge identity (Claude/Codex/Cursor)
+    uint8_t host_type;      // Known HostType, otherwise HostTypeUnknown
+    char host_label[16];    // provider/adapter name for future integrations
     uint8_t transport_mode; // 0 = USB, 1 = BT (shown in header)
     uint8_t rssi_bars;      // BLE signal bars 0–4 (only used when transport_mode == 1)
 } StatusModel;
@@ -158,8 +159,9 @@ void ui_show_status(UiState* ui, const char* text, bool connected);
 void ui_show_status2(UiState* ui, const char* text, const char* subtext, bool connected);
 void ui_show_menu(UiState* ui);
 void ui_show_listening(UiState* ui);
-void ui_set_claude_connected(UiState* ui, bool connected);
+void ui_set_agent_connected(UiState* ui, bool connected);
 void ui_set_host_type(UiState* ui, uint8_t host_type);
+void ui_set_host_name(UiState* ui, const char* host_name);
 void ui_set_pose(UiState* ui, uint8_t pose);
 void ui_set_usage(UiState* ui, uint8_t context_pct, uint8_t session_pct, uint8_t compact_level, bool update_compact);
 void ui_set_transport_mode(UiState* ui, bool is_bt);

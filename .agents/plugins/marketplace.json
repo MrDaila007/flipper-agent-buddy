@@ -5,7 +5,7 @@
   },
   "plugins": [
     {
-      "name": "flipper-codex-buddy",
+      "name": "flipper-agent-buddy-codex",
       "source": {
         "source": "local",
         "path": "./flipper-codex-buddy"

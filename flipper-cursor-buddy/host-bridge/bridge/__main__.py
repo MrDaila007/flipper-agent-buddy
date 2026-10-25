@@ -32,7 +32,7 @@ def main():
             f"Reinstall the flipper-cursor-buddy plugin after upgrading Python."
         )
 
-    parser = argparse.ArgumentParser(description="Flipper Cursor Buddy bridge")
+    parser = argparse.ArgumentParser(description="Flipper Agent Buddy Cursor adapter")
     parser.add_argument(
         "--transport",
         choices=["auto", "usb", "ble"],

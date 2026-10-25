@@ -1,6 +1,6 @@
 ---
 name: flipper-notify
-description: Send a custom sound, vibration, and text notification to the Flipper Zero via the flipper-claude-buddy bridge daemon (requires the bridge to be running).
+description: Send a custom sound, vibration, and text notification to the Flipper Zero via the Flipper Agent Buddy host bridge (requires the bridge to be running).
 allowed-tools: Bash
 ---
 

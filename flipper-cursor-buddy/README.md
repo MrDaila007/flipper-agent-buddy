@@ -1,7 +1,7 @@
-# Flipper Cursor Buddy
+# Flipper Agent Buddy — Cursor adapter
 
-Cursor CLI hooks that connect agent lifecycle events to the Flipper Zero buddy
-application over USB or Bluetooth.
+Cursor hooks that connect agent lifecycle events to Flipper Agent Buddy over
+USB or Bluetooth.
 
 ## Features
 

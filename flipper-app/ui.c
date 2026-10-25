@@ -835,6 +835,7 @@ static void status_draw(Canvas* canvas, void* model) {
         display_host = HostTypeClaude;
     }
     const char* host_label = host_type_label(display_host);
+    if(!host_label && m->host_label[0]) host_label = m->host_label;
     int header_left = 1;
     if(host_label && m->connected) {
         canvas_draw_str(canvas, header_left, 8, host_label);
@@ -883,8 +884,8 @@ static void status_draw(Canvas* canvas, void* model) {
         }
     }
 
-    // Connectivity dot (Claude session) — right edge
-    if(m->claude_connected)
+    // Connectivity dot (agent session) — right edge
+    if(m->agent_connected)
         canvas_draw_disc(canvas, 124, 4, 2);
     else
         canvas_draw_circle(canvas, 124, 4, 2);
@@ -1099,7 +1100,7 @@ static void menu_draw(Canvas* canvas, void* model) {
         canvas_draw_rframe(canvas, 10, 18, 108, 28, 4);
         canvas_set_font(canvas, FontSecondary);
         canvas_draw_str_aligned(canvas, 64, 28, AlignCenter, AlignCenter, "No commands yet");
-        canvas_draw_str_aligned(canvas, 64, 40, AlignCenter, AlignCenter, "Start Claude Code");
+        canvas_draw_str_aligned(canvas, 64, 40, AlignCenter, AlignCenter, "Start an agent");
     } else {
         const int visible = m->choice_id[0] ? 3 : 5;
         const int item_h = 8;
@@ -1231,14 +1232,13 @@ static int info_menu_step(int from, int delta) {
 }
 
 static const char* about_lines[] = {
-    "Claude Buddy",
-    "v0.6",
-    "Claude Code companion",
-    "by jxw1102",
-    "github.com/jxw1102",
-    "/flipper-claude-buddy",
+    "Flipper Agent Buddy",
+    "v0.7",
+    "Universal agent control",
+    "USB/BLE + Desktop BLE",
+    "MIT open source",
 };
-#define ABOUT_LINE_COUNT 6
+#define ABOUT_LINE_COUNT 5
 #define ABOUT_VISIBLE    3
 
 typedef struct {
@@ -1273,8 +1273,8 @@ static const HelpEntry help_entries_bridge[] = {
     {HelpBtnText,  false, "claude-buddy"},
     {HelpBtnText,  false, ""},
     {HelpBtnText,  false, "claude plugin install"},
-    {HelpBtnText,  false, "flipper-claude-buddy@"},
-    {HelpBtnText,  false, "flipper-claude-buddy"},
+    {HelpBtnText,  false, "flipper-agent-buddy"},
+    {HelpBtnText,  false, "Flipper Agent Buddy"},
     {HelpBtnText,  false, "```"},
 };
 
@@ -1366,7 +1366,7 @@ static void info_draw(Canvas* canvas, void* model) {
             if(i == INFO_IDX_BLE) {
                 label = (app_settings_get_ble_mode() == BleModeDesktop)
                             ? "Claude Desktop (BLE)"
-                            : "Claude Code (USB/BLE)";
+                            : "Agent Bridge (USB/BLE)";
             }
             canvas_set_font(canvas, FontSecondary);
             if(i == m->index) {
@@ -2014,10 +2014,10 @@ void ui_show_listening(UiState* ui) {
     view_dispatcher_switch_to_view(ui->view_dispatcher, ViewIdStatus);
 }
 
-void ui_set_claude_connected(UiState* ui, bool connected) {
+void ui_set_agent_connected(UiState* ui, bool connected) {
     if(!ui) return;
     StatusModel* m = view_get_model(ui->status_view);
-    m->claude_connected = connected;
+    m->agent_connected = connected;
     if(!connected) {
         m->rssi_bars = 0; // clear signal bars
     }
@@ -2028,6 +2028,25 @@ void ui_set_host_type(UiState* ui, uint8_t host_type) {
     if(!ui) return;
     StatusModel* m = view_get_model(ui->status_view);
     m->host_type = host_type;
+    m->host_label[0] = '\0';
+    view_commit_model(ui->status_view, true);
+}
+
+void ui_set_host_name(UiState* ui, const char* host_name) {
+    if(!ui) return;
+    StatusModel* m = view_get_model(ui->status_view);
+    m->host_label[0] = '\0';
+    if(host_name) {
+        size_t out = 0;
+        for(size_t i = 0; host_name[i] && out < sizeof(m->host_label) - 1; i++) {
+            char c = host_name[i];
+            if((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+               (c >= '0' && c <= '9') || c == '-' || c == '_') {
+                m->host_label[out++] = c;
+            }
+        }
+        m->host_label[out] = '\0';
+    }
     view_commit_model(ui->status_view, true);
 }
 

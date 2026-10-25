@@ -1,7 +1,7 @@
-# Flipper Codex Buddy
+# Flipper Agent Buddy — Codex adapter
 
-Codex integration connecting the existing Flipper Zero buddy application to a
-running Codex App Server over a local Unix socket, with USB or Bluetooth to Flipper.
+Codex adapter connecting Flipper Agent Buddy to a running Codex App Server over
+a local Unix socket, with USB or Bluetooth to Flipper.
 
 ## Features
 
@@ -66,7 +66,7 @@ the normal application UI remains available and can answer first. Unconfirmed
 decisions are never automatically replayed. On disconnect tokens are invalidated;
 reconnection reattaches to loaded sessions for server replay of pending requests.
 
-Use the updated **Applications → Bluetooth → Claude Buddy** copy. An older copy
+Use the updated **Applications → Bluetooth → Agent Buddy** copy. An older copy
 may still be present under USB; that copy does not support these additions.
 The application folder is independent of using USB or BLE as the transport.
 

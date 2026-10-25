@@ -42,3 +42,11 @@
 ## v0.1
 
 - Initial release with physical remote control, haptic feedback, USB/BLE transport, and Claude Code plugin integration.
+# 0.7 — Flipper Agent Buddy
+
+- Rebrand the universal FAP as **Agent Buddy** while preserving the app ID and
+  persisted settings path for in-place upgrades.
+- Rename the generic host mode to **Agent Bridge (USB/BLE)** and keep the
+  connected provider name in the status header.
+- Clarify the shared host protocol and support for Claude Code, Codex, Cursor,
+  and future adapters.

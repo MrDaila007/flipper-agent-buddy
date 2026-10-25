@@ -37,8 +37,9 @@ def notify_msg(sound: str, vibro: bool = True, text: str = "", subtext: str = ""
     return encode("notify", d)
 
 
-def state_msg(claude_connected: bool = False, host: str = "claude") -> bytes:
-    return encode("state", {"claude": claude_connected, "host": host})
+def state_msg(agent_connected: bool = False, host: str = "claude") -> bytes:
+    # Keep `claude` for older FAPs; new firmware reads the neutral `agent` key.
+    return encode("state", {"agent": agent_connected, "claude": agent_connected, "host": host})
 
 
 def status_msg(line1: str, line2: str = "") -> bytes:
@@ -59,10 +60,16 @@ def menu_msg(items: list[str]) -> bytes:
     return encode("menu", {"items": "|".join(items)})
 
 
-def perm_msg(tool: str, detail: str = "") -> bytes:
+def perm_msg(
+    tool: str, detail: str = "", request_id: str = "", allow_always: bool = False
+) -> bytes:
     d: dict = {"tool": tool[:21]}
     if detail:
-        d["detail"] = detail[:21]
+        d["detail"] = detail[:63]
+    if request_id:
+        d["id"] = request_id[:39]
+    if allow_always:
+        d["allow_always"] = True
     return encode("perm", d)
 
 

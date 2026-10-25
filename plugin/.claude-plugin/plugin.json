@@ -1,15 +1,15 @@
 {
-  "name": "flipper-claude-buddy",
-  "description": "Flipper Zero as a physical remote and feedback device for Claude Code. Sound, vibration, display animations, and host identification over USB or BLE.",
-  "version": "0.6.0",
+  "name": "flipper-agent-buddy-claude",
+  "description": "Claude Code adapter for Flipper Agent Buddy: permissions, status, and physical controls over USB or BLE.",
+  "version": "0.7.0",
   "author": {
-    "name": "jxw1102"
+    "name": "MrDaila007"
   },
-  "repository": "https://github.com/jxw1102/flipper-claude-buddy",
+  "repository": "https://github.com/MrDaila007/flipper-agent-buddy",
   "license": "MIT",
   "keywords": [
     "flipper-zero",
-    "claude-code",
+    "coding-agents",
     "vibe-coding",
     "notifications",
     "remote-control"

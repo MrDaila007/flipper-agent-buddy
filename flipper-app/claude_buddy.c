@@ -1,5 +1,5 @@
 /**
- * Claude Buddy - Flipper Zero companion for Claude Code
+ * Flipper Agent Buddy - universal Flipper companion for coding agents
  *
  * Physical remote control + audio/haptic feedback device.
  * Buttons: UP(short)=voice, UP(long)=hold Space, LEFT=ESC, RIGHT=menu,
@@ -375,13 +375,13 @@ static void process_message(App* app, ProtocolMessage* msg) {
        indicator — otherwise the session-end notify would overwrite the
        claude_disconnect state message that fires just before it. */
     if(msg->type == MsgTypeStatus || msg->type == MsgTypePing) {
-        ui_set_claude_connected(app->ui, true);
+        ui_set_agent_connected(app->ui, true);
     } else if(msg->type == MsgTypeNotify) {
         SoundType snd_check = sound_from_string(msg->sound);
         if(snd_check == SoundDisconnect || snd_check == SoundSessionEnd) {
-            ui_set_claude_connected(app->ui, false);
+            ui_set_agent_connected(app->ui, false);
         } else {
-            ui_set_claude_connected(app->ui, true);
+            ui_set_agent_connected(app->ui, true);
         }
     }
 
@@ -491,7 +491,8 @@ static void process_message(App* app, ProtocolMessage* msg) {
         }
         /* Desktop wire protocol has no "always" decision — hide the
          * toggle there. Bridge keeps it. */
-        ui_show_permission(app->ui, msg->text, msg->text2, /*allow_always*/ !desktop && !msg->perm_id[0]);
+        ui_show_permission(app->ui, msg->text, msg->text2,
+            /*allow_always*/ !desktop && (!msg->perm_id[0] || msg->perm_allow_always));
         break;
     }
 
@@ -509,9 +510,10 @@ static void process_message(App* app, ProtocolMessage* msg) {
         break;
 
     case MsgTypeState:
-        ui_set_claude_connected(app->ui, msg->claude_connected);
+        ui_set_agent_connected(app->ui, msg->agent_connected);
         if(msg->has_host) {
             ui_set_host_type(app->ui, host_from_string(msg->host_name));
+            ui_set_host_name(app->ui, msg->host_name);
         }
         break;
 

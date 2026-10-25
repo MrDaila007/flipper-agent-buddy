@@ -3,9 +3,9 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "flipper-cursor-buddy-bridge"
+name = "flipper-agent-buddy-cursor-bridge"
 version = "0.1.0"
-description = "Host bridge daemon connecting Flipper Zero to Cursor"
+description = "Cursor adapter bridge for Flipper Agent Buddy"
 license = { text = "MIT" }
 requires-python = ">=3.10"
 dependencies = [
@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
-flipper-cursor-bridge = "bridge.__main__:main"
+flipper-agent-cursor-bridge = "bridge.__main__:main"
 
 [project.optional-dependencies]
 dev = [

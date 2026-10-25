@@ -26,14 +26,14 @@ def _make_transport(name: str):
 def main():
     if sys.version_info < (3, 10):
         sys.exit(
-            f"flipper-claude-buddy requires Python 3.10 or higher. "
+            f"flipper-agent-buddy-claude requires Python 3.10 or higher. "
             f"You are running Python {sys.version.split()[0]}. "
             f"Please upgrade Python, then reinstall the plugin:\n"
-            f"  claude plugin uninstall flipper-claude-buddy\n"
-            f"  claude plugin install flipper-claude-buddy@flipper-claude-buddy"
+            f"  claude plugin uninstall flipper-agent-buddy-claude\n"
+            f"  claude plugin install flipper-agent-buddy-claude@flipper-agent-buddy"
         )
 
-    parser = argparse.ArgumentParser(description="Flipper Claude Buddy bridge")
+    parser = argparse.ArgumentParser(description="Flipper Agent Buddy Claude adapter")
     parser.add_argument(
         "--transport",
         choices=["auto", "usb", "ble"],

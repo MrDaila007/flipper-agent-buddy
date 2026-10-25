@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import os
+import uuid
 from collections import OrderedDict
 from pathlib import Path
 from . import config, protocol
@@ -23,8 +24,12 @@ class Daemon:
         self._dictation: DictationBackend = dictation or create_dictation_backend()
         self._input: InputBackend = input_backend or create_input_backend()
         self._dictating = False
-        self._claude_connected = False
-        self._perm_future: asyncio.Future | None = None
+        self._agent_connected = False
+        # Permission hooks may arrive concurrently. Serialize the one visible
+        # Flipper prompt while correlating every response to its own hook.
+        self._perm_lock = asyncio.Lock()
+        self._perm_futures: dict[str, asyncio.Future] = {}
+        self._active_perm_id: str | None = None
         self._menu_sent = False
         self._cmd_map: dict[str, str] = {}  # truncated -> full command
         self._space_repeat_task: asyncio.Task | None = None
@@ -52,14 +57,15 @@ class Daemon:
             if bt_name:
                 _save_bt_name_to_plugin_config(bt_name)
             # Flipper app just (re)started — cancel any pending permission request
-            if self._perm_future and not self._perm_future.done():
-                log.info("Cancelling stale permission request")
-                self._perm_future.set_result(None)
+            for request_id, future in list(self._perm_futures.items()):
+                if not future.done():
+                    log.info("Cancelling stale permission request %s", request_id)
+                    future.set_result(None)
             await self.serial.send(
                 protocol.notify_msg("ready", vibro=True, text="Claude Code", subtext="Connected")
             )
             await self.serial.send(
-                protocol.state_msg(self._claude_connected, config.HOST_TYPE)
+                protocol.state_msg(self._agent_connected, config.HOST_TYPE)
             )
             # Send command menu
             commands = self._load_commands()
@@ -152,10 +158,13 @@ class Daemon:
             allowed = data.get("allow", False)
             always = data.get("always", False)
             esc = data.get("esc", False)
-            log.info("Flipper perm_resp: allow=%s always=%s esc=%s future=%s",
-                     allowed, always, esc, self._perm_future is not None)
-            if self._perm_future and not self._perm_future.done():
-                self._perm_future.set_result({"allow": allowed, "always": always})
+            response_id = str(data.get("id", ""))
+            request_id = response_id or self._active_perm_id
+            future = self._perm_futures.get(request_id or "")
+            log.info("Flipper perm_resp: id=%s allow=%s always=%s esc=%s matched=%s",
+                     response_id or "legacy", allowed, always, esc, future is not None)
+            if future and not future.done() and request_id == self._active_perm_id:
+                future.set_result({"allow": allowed, "always": always})
             if esc:
                 await self._send_keystroke("escape")
 
@@ -168,16 +177,17 @@ class Daemon:
                     menu_bytes = protocol.menu_msg(commands)
                     log.debug("Sending menu (%d commands, %d bytes)", len(commands), len(menu_bytes))
                     await self.serial.send(menu_bytes)
-                if self._claude_connected:
+                if self._agent_connected:
                     await self.serial.send(protocol.state_msg(True, config.HOST_TYPE))
 
     async def _handle_ipc_action(self, request: dict) -> dict:
         action = request.get("action", "")
 
         if action == "notify":
-            if self._perm_future and not self._perm_future.done():
+            active_future = self._perm_futures.get(self._active_perm_id or "")
+            if active_future and not active_future.done():
                 log.info("Dismissing pending permission (deferring to Claude)")
-                self._perm_future.set_result({"ask": True})
+                active_future.set_result({"ask": True})
             sound = request.get("sound", "alert")
             vibro = request.get("vibro", True)
             text = request.get("text", "")
@@ -207,7 +217,7 @@ class Daemon:
             if project_dir:
                 config.PROJECT_DIR = project_dir
                 log.info("Updated PROJECT_DIR to %s", project_dir)
-            self._claude_connected = True
+            self._agent_connected = True
             await self.serial.send(protocol.state_msg(True, config.HOST_TYPE))
             # Refresh commands for the (possibly new) project
             commands = self._load_commands()
@@ -217,7 +227,7 @@ class Daemon:
 
         elif action == "claude_disconnect":
             await self._stop_space_repeat()
-            self._claude_connected = False
+            self._agent_connected = False
             await self.serial.send(protocol.state_msg(False, config.HOST_TYPE))
             return {"status": "ok"}
 
@@ -233,47 +243,65 @@ class Daemon:
 
         elif action == "permission_request":
             tool = request.get("tool", "Tool")[:21]
-            detail = request.get("detail", "")[:21]
-            log.info("Permission request: %s %s", tool, detail)
+            detail = request.get("detail", "")[:63]
+            allow_always = bool(request.get("allow_always", False))
+            # The Claude hook itself has a 65s ceiling. Bound queue wait and
+            # user response together so a timed-out hook cannot leave a stale
+            # permission waiting to be displayed later.
+            try:
+                return await asyncio.wait_for(
+                    self._permission_request(
+                        tool, detail, uuid.uuid4().hex[:16], allow_always
+                    ),
+                    timeout=60.0,
+                )
+            except asyncio.TimeoutError:
+                return {"status": "timeout"}
 
-            if self._perm_future and not self._perm_future.done():
-                log.info("Permission busy, rejecting")
-                return {"status": "busy", "allowed": False}
+        return {"status": "unknown_action"}
 
+    async def _permission_request(
+        self, tool: str, detail: str, request_id: str, allow_always: bool
+    ) -> dict:
+        """Display permission requests FIFO and return only their own reply."""
+        log.info("Permission queued: id=%s tool=%s detail=%s", request_id, tool, detail)
+        async with self._perm_lock:
             if not self.serial.connected:
                 log.info("No Flipper, falling back")
                 return {"status": "no_flipper", "allowed": None}
 
-            self._perm_future = asyncio.get_running_loop().create_future()
-            await self.serial.send(protocol.perm_msg(tool, detail))
-
-            if not self.serial.connected:
-                log.info("Send failed, no Flipper")
-                self._perm_future = None
-                return {"status": "no_flipper"}
-
+            future = asyncio.get_running_loop().create_future()
+            self._perm_futures[request_id] = future
+            self._active_perm_id = request_id
             try:
-                log.info("Waiting for Flipper response (60s timeout)")
-                result = await asyncio.wait_for(self._perm_future, timeout=60.0)
+                await self.serial.send(protocol.perm_msg(
+                    tool, detail, request_id, allow_always=allow_always
+                ))
+                if not self.serial.connected:
+                    log.info("Send failed, no Flipper")
+                    return {"status": "no_flipper"}
+
+                log.info("Permission displayed: id=%s", request_id)
+                result = await asyncio.wait_for(future, timeout=60.0)
                 if result is None:
-                    log.info("Permission cancelled (Flipper reset)")
+                    log.info("Permission cancelled by Flipper reset: id=%s", request_id)
                     return {"status": "no_flipper"}
                 if result.get("ask"):
-                    log.info("Permission dismissed — deferring to Claude")
+                    log.info("Permission dismissed — deferring to Claude: id=%s", request_id)
                     return {"status": "ask"}
-                log.info("Permission result: %s", result)
+                log.info("Permission resolved: id=%s allow=%s", request_id, result["allow"])
                 return {
                     "status": "ok",
                     "allowed": result["allow"],
                     "always": result["always"],
                 }
             except asyncio.TimeoutError:
-                log.info("Permission timed out")
+                log.info("Permission timed out: id=%s", request_id)
                 return {"status": "timeout"}
             finally:
-                self._perm_future = None
-
-        return {"status": "unknown_action"}
+                self._perm_futures.pop(request_id, None)
+                if self._active_perm_id == request_id:
+                    self._active_perm_id = None
 
     # Built-in slash commands
     BUILTIN_COMMANDS = [
@@ -661,7 +689,13 @@ def _save_bt_name_to_plugin_config(bt_name: str) -> None:
     settings_path = Path.home() / ".claude" / "settings.json"
     try:
         settings = json.loads(settings_path.read_text()) if settings_path.exists() else {}
-        plugin_cfg = settings.setdefault("pluginConfigs", {}).setdefault("flipper-claude-buddy", {})
+        plugin_configs = settings.setdefault("pluginConfigs", {})
+        # Preserve per-user transport settings when upgrading from the forked
+        # marketplace/plugin id.
+        plugin_cfg = plugin_configs.get("flipper-agent-buddy-claude")
+        if plugin_cfg is None:
+            plugin_cfg = plugin_configs.pop("flipper-claude-buddy", {})
+            plugin_configs["flipper-agent-buddy-claude"] = plugin_cfg
         options = plugin_cfg.setdefault("options", {})
         if options.get("bluetoothName") == bt_name:
             return  # already up to date, skip the write

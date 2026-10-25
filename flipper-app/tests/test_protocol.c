@@ -163,7 +163,7 @@ static void test_parse_state_true(void) {
     ProtocolMessage msg;
     CHECK(protocol_parse(json, &msg) == true);
     CHECK(msg.type == MsgTypeState);
-    CHECK(msg.claude_connected == true);
+    CHECK(msg.agent_connected == true);
 }
 
 static void test_parse_state_false(void) {
@@ -171,7 +171,7 @@ static void test_parse_state_false(void) {
         "{\"v\":1,\"t\":\"state\",\"d\":{\"claude\":false}}";
     ProtocolMessage msg;
     CHECK(protocol_parse(json, &msg) == true);
-    CHECK(msg.claude_connected == false);
+    CHECK(msg.agent_connected == false);
 }
 
 /* ---------------------------------------------------------------------------

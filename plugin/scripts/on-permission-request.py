@@ -3,18 +3,24 @@
 
 import json
 import os
+import re
 import socket
 import sys
 
 SOCKET_PATH = "/tmp/claude-flipper-bridge.sock"
-TIMEOUT = 60  # seconds to wait for user decision on Flipper
+TIMEOUT = 64  # daemon returns or falls back before the 65s Claude hook timeout
 
 
-def send_to_bridge(tool: str, detail: str) -> dict:
+def send_to_bridge(tool: str, detail: str, hook_input: dict) -> dict:
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     s.settimeout(TIMEOUT)
     s.connect(SOCKET_PATH)
-    msg = json.dumps({"action": "permission_request", "tool": tool, "detail": detail})
+    msg = json.dumps({
+        "action": "permission_request", "tool": tool, "detail": detail,
+        "session_id": hook_input.get("session_id", ""),
+        "cwd": hook_input.get("cwd", ""),
+        "allow_always": bool(hook_input.get("permission_suggestions")),
+    })
     s.sendall(msg.encode())
     s.shutdown(socket.SHUT_WR)
     resp = s.recv(4096)
@@ -23,32 +29,53 @@ def send_to_bridge(tool: str, detail: str) -> dict:
 
 
 def extract_detail(tool_name: str, tool_input: dict) -> str:
-    """Extract a short detail string from the tool input."""
-    # Special handling for mcp__atlassian__searchJiraIssuesUsingJql and similar
+    """Extract useful, bounded context without exposing arbitrary MCP values."""
     if "__" in tool_name:
         parts = tool_name.split("__")
         if len(parts) >= 3:
-            # e.g. mcp__atlassian__searchJiraIssuesUsingJql
-            return parts[-1][:21]
+            keys = [str(key) for key in tool_input if not _sensitive_key(str(key))]
+            suffix = ", ".join(keys[:3])
+            return (f"{parts[-1]} ({suffix})" if suffix else parts[-1])[:63]
     if tool_name == "Bash":
-        desc = tool_input.get("description", "")
-        if desc:
-            return desc[:21]
         cmd = tool_input.get("command", "")
-        return cmd[:21] if cmd else ""
+        desc = tool_input.get("description", "")
+        value = cmd.strip() or desc.strip()
+        value = _redact_command(value)
+        return value.replace("\n", " ")[:63] if value else ""
     if tool_name in ("Edit", "Write", "Read"):
         path = tool_input.get("file_path", "")
-        return os.path.basename(path)[:21] if path else ""
+        return str(path)[-63:] if path else ""
     if tool_name in ("WebFetch", "WebSearch"):
         val = tool_input.get("url") or tool_input.get("query", "")
         for prefix in ("https://", "http://"):
             if val.startswith(prefix):
                 val = val[len(prefix):]
                 break
-        return val[:21]
+        return val[:63]
     if tool_name == "Agent":
-        return tool_input.get("description", "")[:21]
+        return str(tool_input.get("description", ""))[:63]
     return ""
+
+
+def _sensitive_key(key: str) -> bool:
+    lowered = key.lower()
+    return any(part in lowered for part in (
+        "secret", "token", "password", "credential", "authorization", "api_key", "apikey"
+    ))
+
+
+def _redact_command(command: str) -> str:
+    """Hide common inline credentials before showing a shell command on-device."""
+    patterns = (
+        r"(?i)(--?(?:api[-_]?key|token|password|secret|authorization)(?:=|\s+))(?:(\"[^\"]*\")|('[^']*')|([^\s]+))",
+        r"(?i)\b((?:[A-Z0-9_]*API[_-]?KEY|[A-Z0-9_]*(?:ACCESS_)?TOKEN|[A-Z0-9_]*PASSWORD|[A-Z0-9_]*SECRET|[A-Z0-9_]*AUTHORIZATION)=)([^\s]+)",
+        r"(https?://)[^/@\s:]+:[^/@\s]+@",
+    )
+    result = command
+    result = re.sub(patterns[0], lambda m: m.group(1) + "[redacted]", result)
+    result = re.sub(patterns[1], lambda m: m.group(1) + "[redacted]", result)
+    result = re.sub(patterns[2], r"\1[redacted]@", result)
+    return result
 
 
 def main():
@@ -76,9 +103,12 @@ def main():
         tool_name = tool_name_raw
 
     detail = extract_detail(tool_name_raw, tool_input)
+    project = os.path.basename(str(hook_input.get("cwd", "")).rstrip("/\\"))
+    if project:
+        tool_name = f"{tool_name} @{project}"[:21]
 
     try:
-        result = send_to_bridge(tool_name, detail)
+        result = send_to_bridge(tool_name, detail, hook_input)
     except Exception:
         # Bridge error — fall back to normal permission dialog
         sys.exit(1)
@@ -93,7 +123,7 @@ def main():
 
     # Only act on explicit user decisions from Flipper
     if status != "ok":
-        # no_flipper, timeout, busy, error — fall back to normal dialog
+        # no_flipper, timeout, error — fall back to normal dialog
         sys.exit(1)
 
     allowed = result.get("allowed", False)

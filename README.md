@@ -1,6 +1,13 @@
-# Flipper CLI Agent Buddy
+# Flipper Agent Buddy
 
-Turn your Flipper Zero into a physical companion for **Claude Code**, **OpenAI Codex**, and **Cursor** CLI agents. Get tactile feedback for every AI action, see which agent is connected at a glance, and control your terminal session with real buttons instead of typing.
+Turn your Flipper Zero into a universal physical companion for coding agents. One device app connects agent-specific adapters to a common status display, attention queue, and button interface. A shared host core is the target architecture; bridge consolidation is underway.
+
+Initial adapters support **Claude Code**, **OpenAI Codex**, and **Cursor**. **Claude Desktop** connects directly over BLE through Anthropic's Hardware Buddy protocol. Additional agents can be added through adapters without changing the Flipper UI.
+
+This repository is independently maintained. It retains the MIT license notice
+for code derived from Flipper Claude Buddy; see [NOTICE](NOTICE) and [LICENSE](LICENSE).
+The universal host-core and adapter architecture is developed here. See
+[the architecture](docs/ARCHITECTURE.md).
 
 > Supports macOS and Linux. Windows is not tested.
 
@@ -10,10 +17,10 @@ Turn your Flipper Zero into a physical companion for **Claude Code**, **OpenAI C
 Every significant event triggers a distinct sound and vibration pattern on your Flipper, so you always know status even when you are not looking at the screen.
 
 **You see which agent is active.**
-The status header shows **Claude**, **Codex**, or **Cursor** in the top-left corner when a host bridge is connected.
+The status header shows the connected agent's name in the top-left corner.
 
-**You control the agent with physical buttons.**
-Interrupt a runaway task, submit a prompt, trigger voice dictation, or open the command menu — all without touching the keyboard.
+**You respond to agent requests with physical buttons.**
+Approval prompts and supported choice questions can be handled from the Flipper. Some general controls still forward key presses to the active terminal; native, agent-independent controls are being added through adapter capabilities.
 
 **The character reacts to each tool.**
 Reading, editing, terminal commands, searches, and delegated work each get their own animated pose. Compaction, permission outcomes, and context pressure also change the character and optional Ctx/Lim meters.
@@ -23,19 +30,19 @@ Reading, editing, terminal commands, searches, and delegated work each get their
 | Agent | Package | Install doc | IPC socket |
 |-------|---------|-------------|------------|
 | **Claude Code** | `plugin/` | [Setup below](#claude-code) | `/tmp/claude-flipper-bridge.sock` |
-| **OpenAI Codex** | `flipper-codex-buddy/` | [Codex README](flipper-codex-buddy/README.md) | `/tmp/codex-flipper-bridge.sock` |
-| **Cursor** | `flipper-cursor-buddy/` | [Cursor README](flipper-cursor-buddy/README.md) | `/tmp/cursor-flipper-bridge.sock` |
+| **OpenAI Codex adapter** | `flipper-codex-buddy/` | [Codex adapter README](flipper-codex-buddy/README.md) | local IPC |
+| **Cursor adapter** | `flipper-cursor-buddy/` | [Cursor adapter README](flipper-cursor-buddy/README.md) | local IPC |
 | **Claude Desktop** | *(none — built into FAP)* | [Desktop mode](#claude-desktop-ble) | BLE only |
 
-The Claude Code, Codex, and Cursor CLI integrations use each agent's current hook and plugin formats. Each ships its own hook scripts and Python host bridge; all bridges share the same Flipper application and serial protocol.
+Each CLI adapter currently uses its agent's native hook or App Server interface. They share the Flipper application and wire protocol; consolidating duplicated host transport and queue code into one core is in progress.
 
 > **Important:** Only one bridge should use the Flipper USB serial port at a time. Stop or disable other bridges before switching agents.
 
 ## Flipper app modes
 
-Claude Buddy runs in one of two transport modes, switchable from the on-device menu (long-press **Right → MENU**, then the top row):
+Flipper Agent Buddy runs in one of two integration modes, switchable from the on-device menu (long-press **Right → MENU**, then the top row):
 
-- **Claude Code (USB/BLE)** (default) — pairs with a CLI agent through a host bridge over USB or BLE. Full keystroke forwarding: Enter, Esc, voice dictation, command menu, etc.
+- **Agent Bridge (USB/BLE)** (default) — connects a compatible coding-agent adapter over USB or BLE. The adapter reports supported controls and approval types.
 - **Claude Desktop (BLE)** — talks directly to the Claude Desktop app over Anthropic's [Hardware Buddy](https://github.com/anthropics/claude-desktop-buddy) protocol. No plugin, no host bridge. Live session status, token counts, transcript, and on-device permission prompts.
 
 See [flipper-app/README.md](flipper-app/README.md) for the full button map and mode details.
@@ -44,17 +51,17 @@ See [flipper-app/README.md](flipper-app/README.md) for the full button map and m
 
 | Button | Action (Bridge mode) |
 |--------|----------------------|
-| UP | Start / stop voice dictation |
-| UP (hold) | Hold Space for voice input |
-| LEFT | Interrupt (Esc) |
-| LEFT (hold) | Send Ctrl+C |
+| UP | Start / stop voice dictation (host dependent) |
+| UP (hold) | Hold Space for voice input (terminal forwarding) |
+| LEFT | Interrupt (adapter or Esc fallback) |
+| LEFT (hold) | Send Ctrl+C to active terminal |
 | RIGHT | Open command menu |
 | RIGHT (hold) | Open info menu |
-| OK | Submit Enter |
+| OK | Submit Enter to active terminal; answer the displayed approval/choice when one is open |
 | OK (hold) | Type "yes" and submit |
-| DOWN | Send Down arrow |
+| DOWN | Send Down arrow to active terminal; navigate choices when displayed |
 | DOWN (hold) | Toggle mute |
-| BACK | Send Backspace |
+| BACK | Send Backspace; defer/close the displayed request where supported |
 | BACK (hold) | Exit |
 
 ## Setup
@@ -71,7 +78,7 @@ ufbt launch
 
 Copy the `.fap` to `apps/Bluetooth/` on the SD card, or flash via `ufbt launch`.
 
-Launch **Applications → Bluetooth → Claude Buddy** on the Flipper. You should hear the startup fanfare when the transport connects.
+Launch **Applications → Bluetooth → Agent Buddy** on the Flipper. You should hear the startup fanfare when the transport connects.
 
 ### 2. Pick your CLI agent
 
@@ -80,11 +87,19 @@ Launch **Applications → Bluetooth → Claude Buddy** on the Flipper. You shoul
 > **Requires Python 3.10+.**
 
 ```bash
-claude plugin marketplace add jxw1102/flipper-claude-buddy
-claude plugin install flipper-claude-buddy@flipper-claude-buddy
+claude plugin marketplace add MrDaila007/flipper-agent-buddy
+claude plugin install flipper-agent-buddy-claude@flipper-agent-buddy
 ```
 
 The plugin starts the host bridge automatically on each Claude Code session. Configure transport in the plugin settings (`auto`, `usb`, or `ble`).
+
+Permission prompts are shown one at a time in FIFO order, including prompts
+from parallel tool calls. Each Flipper decision is tied to the displayed prompt;
+stale replies cannot approve the next request. The detail shows the requested
+command, file path, or MCP operation parameters (parameter names only), with
+common inline credentials redacted from shell commands. If the Flipper is
+unavailable or the request times out, Claude's normal permission flow remains
+available.
 
 #### OpenAI Codex
 
@@ -92,7 +107,7 @@ The plugin starts the host bridge automatically on each Claude Code session. Con
 ./flipper-codex-buddy/scripts/install-codex-plugin.sh
 ```
 
-Then open `/hooks` in Codex, trust the plugin hooks, and start a new thread. See [flipper-codex-buddy/README.md](flipper-codex-buddy/README.md).
+Then open `/hooks` in Codex, trust the Flipper Agent Buddy adapter hooks, and start a new thread. See [flipper-codex-buddy/README.md](flipper-codex-buddy/README.md).
 
 #### Cursor
 
@@ -132,13 +147,13 @@ export FLIPPER_TRANSPORT=usb     # recommended on Linux
 
 ## Host identification protocol
 
-Bridges report which agent is connected via the `host` field on `state` messages:
+Bridges report the connected agent in the `agent` field and its display identity in `host` on `state` messages:
 
 ```json
-{"v":1,"t":"state","d":{"claude":true,"host":"cursor"}}
+{"v":1,"t":"state","d":{"agent":true,"claude":true,"host":"cursor"}}
 ```
 
-Allowed values: `claude`, `codex`, `cursor`. The Flipper shows the label in the status header. Older bridges without `host` still work; Desktop BLE mode defaults to **Claude**.
+`host` is a short display label such as `claude`, `codex`, or `cursor`; other ASCII labels are accepted. `claude` remains in the example for compatibility with older FAPs. Older bridges without `host` still work; Desktop BLE mode defaults to **Claude**.
 
 ## Troubleshooting
 
@@ -149,7 +164,7 @@ Allowed values: `claude`, `codex`, `cursor`. The Flipper shows the label in the 
 | No sound on task complete | Check bridge log: `tail -f /tmp/<agent>-flipper-bridge.log` |
 | Buttons do nothing (macOS) | Grant Accessibility permission to your terminal app. |
 | Buttons do nothing (Linux) | Install `xdotool`; focus the terminal window. |
-| Parse errors / CLI banner in log | The Flipper is running the CLI app, not Claude Buddy — open the buddy FAP and restart the bridge. |
+| Parse errors / CLI banner in log | The Flipper is running the CLI app, not Agent Buddy — open the Agent Buddy FAP and restart the bridge. |
 
 Bridge logs:
 
@@ -164,8 +179,8 @@ Bridge logs:
 ```
 flipper-app/              Flipper Zero FAP (C)
 plugin/                   Claude Code plugin + host bridge
-flipper-codex-buddy/      Codex plugin + host bridge
-flipper-cursor-buddy/     Cursor hooks + host bridge
+flipper-codex-buddy/      Codex adapter package
+flipper-cursor-buddy/     Cursor adapter package
 ```
 
 ## Development
@@ -174,7 +189,7 @@ See [CLAUDE.md](CLAUDE.md) for build commands, architecture, protocol details, a
 
 ## Support
 
-If you find this useful, consider [buying the maintainer a coffee](https://ko-fi.com/jxw1102).
+For issues and project discussions, use the repository's GitHub Issues and Discussions pages.
 
 ## License
 

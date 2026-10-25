@@ -237,9 +237,9 @@ class TestPermMsg:
         msg = json.loads(protocol.perm_msg("Edit", "modify auth.py"))
         assert msg["d"]["detail"] == "modify auth.py"
 
-    def test_detail_truncated_to_21(self):
-        msg = json.loads(protocol.perm_msg("Edit", "x" * 30))
-        assert len(msg["d"]["detail"]) == 21
+    def test_detail_truncated_to_63(self):
+        msg = json.loads(protocol.perm_msg("Edit", "x" * 70))
+        assert len(msg["d"]["detail"]) == 63
 
     def test_no_detail_key_when_empty(self):
         msg = json.loads(protocol.perm_msg("Bash", ""))

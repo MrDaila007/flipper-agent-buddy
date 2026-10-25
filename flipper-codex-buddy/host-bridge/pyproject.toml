@@ -3,9 +3,9 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "flipper-codex-buddy-bridge"
+name = "flipper-agent-buddy-codex-bridge"
 version = "0.1.0"
-description = "Host bridge daemon connecting Flipper Zero to Codex"
+description = "Codex adapter bridge for Flipper Agent Buddy"
 license = { text = "MIT" }
 requires-python = ">=3.10"
 dependencies = [
@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [project.scripts]
-flipper-codex-bridge = "bridge.__main__:main"
+flipper-agent-codex-bridge = "bridge.__main__:main"
 
 [project.optional-dependencies]
 dev = [

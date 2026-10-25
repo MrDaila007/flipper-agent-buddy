@@ -42,9 +42,9 @@ typedef struct {
     char text[PROTOCOL_MAX_FIELD_LEN];   // line1
     char text2[PROTOCOL_MAX_FIELD_LEN];  // line2 (subtext)
     char menu_data[PROTOCOL_MAX_MSG_LEN]; // pipe-delimited menu items
-    bool claude_connected; // claude code session state
+    bool agent_connected; // host-side coding agent connected
     bool has_host;
-    char host_name[8];     // "claude", "codex", "cursor" (from state message)
+    char host_name[16];    // provider/adapter id from the state message
     bool has_rssi;
     int16_t rssi;
     /* Permission correlation (Bridge + NUS) and NUS-only additions:
@@ -54,6 +54,7 @@ typedef struct {
      *                 must ack via transport_send.  Set by on_serial_data
      *                 in NUS mode; consumed in process_message. */
     char perm_id[40];
+    bool perm_allow_always; // Claude PermissionRequest supports suggested persistent rules
     char pending_ack[16];
     /* `n` field to use when the ack needs a running byte count (chunk,
      * file_end). 0 for normal acks. */

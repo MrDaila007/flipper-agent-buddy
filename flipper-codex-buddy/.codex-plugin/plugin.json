@@ -1,21 +1,21 @@
 {
-  "name": "flipper-codex-buddy",
-  "version": "0.1.0",
-  "description": "Use a Flipper Zero as a physical remote and feedback device for Codex.",
+  "name": "flipper-agent-buddy-codex",
+  "version": "0.2.0",
+  "description": "Codex adapter for Flipper Agent Buddy: attention queue, approvals, and status.",
   "author": {
     "name": "MrDaila007"
   },
-  "repository": "https://github.com/MrDaila007/flipper-claude-buddy",
+  "repository": "https://github.com/MrDaila007/flipper-agent-buddy",
   "license": "MIT",
   "keywords": ["flipper-zero", "codex", "notifications", "remote-control"],
   "skills": "./skills/",
   "interface": {
-    "displayName": "Flipper Codex Buddy",
-    "shortDescription": "Control Codex and receive status alerts on Flipper Zero.",
-    "longDescription": "Connects Codex lifecycle hooks to a Flipper Zero over USB or Bluetooth for approvals, commands, sound, vibration, and status feedback.",
+    "displayName": "Flipper Agent Buddy (Codex)",
+    "shortDescription": "Connect Codex to the universal Flipper Agent Buddy app.",
+    "longDescription": "Connects Codex App Server to Flipper Agent Buddy over USB or Bluetooth for approvals, choices, and status feedback.",
     "developerName": "MrDaila007",
     "category": "Productivity",
     "capabilities": ["Notifications", "Approvals", "Remote control"],
-    "defaultPrompt": "Use Flipper Codex Buddy for physical status notifications and approvals."
+    "defaultPrompt": "Use Flipper Agent Buddy for physical Codex status notifications and approvals."
   }
 }

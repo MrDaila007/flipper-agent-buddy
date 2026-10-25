@@ -32,7 +32,7 @@ static void apply_entry(NusStateCtx* ctx, BuddyState from, BuddyState to) {
         if(ctx->app_is_working) *ctx->app_is_working = false;
         notify_play(ctx->notifications, SoundDisconnect, LedStateOff);
         ui_set_pose(ctx->ui, PoseSleeping);
-        ui_set_claude_connected(ctx->ui, false);
+        ui_set_agent_connected(ctx->ui, false);
         break;
 
     case BuddyStateIdle:
@@ -51,14 +51,14 @@ static void apply_entry(NusStateCtx* ctx, BuddyState from, BuddyState to) {
             notify_play(ctx->notifications, SoundLedOff, LedStateOff);
             ui_set_pose(ctx->ui, PoseIdle);
         }
-        ui_set_claude_connected(ctx->ui, true);
+        ui_set_agent_connected(ctx->ui, true);
         break;
 
     case BuddyStateBusy:
         if(ctx->app_is_working) *ctx->app_is_working = true;
         notify_play(ctx->notifications, SoundLedWorking, LedStateOff);
         ui_set_pose(ctx->ui, PoseThinking);
-        ui_set_claude_connected(ctx->ui, true);
+        ui_set_agent_connected(ctx->ui, true);
         break;
 
     case BuddyStateAttention:
@@ -67,7 +67,7 @@ static void apply_entry(NusStateCtx* ctx, BuddyState from, BuddyState to) {
          * when the prompt arrived, keep that LED-under-blink bookkeeping. */
         notify_play(ctx->notifications, SoundPerm, LedStateOff);
         ui_set_pose(ctx->ui, PoseWorried);
-        ui_set_claude_connected(ctx->ui, true);
+        ui_set_agent_connected(ctx->ui, true);
         break;
     }
     FURI_LOG_D(TAG, "state %d → %d", from, to);

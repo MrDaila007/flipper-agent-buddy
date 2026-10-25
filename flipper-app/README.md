@@ -1,14 +1,14 @@
-# Claude Buddy (Flipper app)
+# Flipper Agent Buddy (Flipper app)
 
-Claude Buddy turns your Flipper Zero into a physical remote and status display for CLI coding agents — with haptic, audio, and LED feedback for every significant event, and buttons that replace the keyboard for common actions.
+Flipper Agent Buddy turns your Flipper Zero into a physical remote and status display for coding agents, with haptic, audio, and LED feedback plus a shared interface for common actions.
 
-Works with **Claude Code**, **Codex**, and **Cursor** host bridges, plus **Claude Desktop** over BLE.
+One FAP works with host adapters for **Claude Code**, **Codex**, and **Cursor**, plus **Claude Desktop** over BLE. Additional agents can use the shared host protocol.
 
 ## Display
 
 | Element | Description |
 |---------|-------------|
-| **Host label** | Top-left: `Claude`, `Codex`, or `Cursor` (from bridge `state.host`) |
+| **Host label** | Top-left: the connected agent name (from bridge `state.host`) |
 | **Transport** | Top-right: `USB` or BLE signal bars |
 | **Session dot** | Filled circle when an agent session is active |
 | **Character** | Animated poses for idle, working, compaction, errors, permissions, context pressure |
@@ -17,11 +17,11 @@ Works with **Claude Code**, **Codex**, and **Cursor** host bridges, plus **Claud
 
 ## Two modes
 
-Pick whichever one matches how you use Claude. Switch on-device at any time: long-press **Right → MENU**, then the top row.
+Pick the bridge mode for a coding agent or the direct Claude Desktop BLE mode. Switch on-device at any time: long-press **Right → MENU**, then the top row.
 
 | Mode | Pairs with | Transport | What the buttons do |
 |------|------------|-----------|---------------------|
-| **Claude Code (USB/BLE)** *(default)* | Any CLI host bridge (Claude / Codex / Cursor) | USB or BLE | Forward keystrokes: Enter, Esc, voice dictation, Ctrl+C, command menu, arrows, etc. |
+| **Agent Bridge (USB/BLE)** *(default)* | Any compatible host adapter (Claude Code / Codex / Cursor) | USB or BLE | Agent status, permissions, choices, and supported button actions |
 | **Claude Desktop (BLE)** | Claude Desktop app via [Hardware Buddy](https://github.com/anthropics/claude-desktop-buddy) | BLE only | Live session status + transcript; Allow / Deny permission prompts on-device |
 
 Both modes share the same LED, sound, and vibration feedback patterns.
@@ -30,7 +30,7 @@ Both modes share the same LED, sound, and vibration feedback patterns.
 
 **Setup**
 
-1. Install and launch Claude Buddy on your Flipper.
+1. Install and launch Flipper Agent Buddy on your Flipper.
 2. Install the host bridge for your agent ([root README](../README.md#2-pick-your-cli-agent)).
 3. Start an agent session. The bridge connects automatically (or run `flipper-*-buddy/bin/flipper-bridge enable` for Codex/Cursor).
 

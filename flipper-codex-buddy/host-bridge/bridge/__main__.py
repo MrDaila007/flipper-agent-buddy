@@ -26,13 +26,13 @@ def _make_transport(name: str):
 def main():
     if sys.version_info < (3, 10):
         sys.exit(
-            f"flipper-codex-buddy requires Python 3.10 or higher. "
+            f"flipper-agent-buddy-codex requires Python 3.10 or higher. "
             f"You are running Python {sys.version.split()[0]}. "
             f"Please upgrade Python, then reinstall the plugin:\n"
-            f"Reinstall the flipper-codex-buddy plugin after upgrading Python."
+            f"Reinstall the flipper-agent-buddy-codex adapter after upgrading Python."
         )
 
-    parser = argparse.ArgumentParser(description="Flipper Codex Buddy bridge")
+    parser = argparse.ArgumentParser(description="Flipper Agent Buddy Codex adapter")
     parser.add_argument(
         "--transport",
         choices=["auto", "usb", "ble"],

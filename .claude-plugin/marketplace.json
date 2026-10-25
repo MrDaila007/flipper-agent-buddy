@@ -1,13 +1,13 @@
 {
-  "name": "flipper-claude-buddy",
-  "owner": { "name": "jxw1102" },
+  "name": "flipper-agent-buddy",
+  "owner": { "name": "MrDaila007" },
   "plugins": [
     {
-      "name": "flipper-claude-buddy",
-      "description": "Flipper Zero hardware controller for Claude Code",
+      "name": "flipper-agent-buddy-claude",
+      "description": "Claude Code adapter for Flipper Agent Buddy",
       "source": {
         "source": "git-subdir",
-        "url": "https://github.com/jxw1102/flipper-claude-buddy.git",
+        "url": "https://github.com/MrDaila007/flipper-agent-buddy.git",
         "path": "plugin"
       }
     }

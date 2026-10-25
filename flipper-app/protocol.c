@@ -121,7 +121,10 @@ bool protocol_parse(const char* json_line, ProtocolMessage* msg) {
         json_get_string(d_start, "items", msg->menu_data, sizeof(msg->menu_data));
         break;
     case MsgTypeState:
-        json_get_bool(d_start, "claude", &msg->claude_connected);
+        if(!json_get_bool(d_start, "agent", &msg->agent_connected)) {
+            /* Compatibility with existing bridges and older firmware. */
+            json_get_bool(d_start, "claude", &msg->agent_connected);
+        }
         if(json_get_string(d_start, "host", msg->host_name, sizeof(msg->host_name))) {
             msg->has_host = true;
         }
@@ -130,6 +133,7 @@ bool protocol_parse(const char* json_line, ProtocolMessage* msg) {
         json_get_string(d_start, "tool", msg->text, sizeof(msg->text));
         json_get_string(d_start, "detail", msg->text2, sizeof(msg->text2));
         json_get_string(d_start, "id", msg->perm_id, sizeof(msg->perm_id));
+        json_get_bool(d_start, "allow_always", &msg->perm_allow_always);
         break;
     case MsgTypePermClear:
         json_get_string(d_start, "id", msg->perm_id, sizeof(msg->perm_id));
