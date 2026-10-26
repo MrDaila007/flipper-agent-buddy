@@ -68,7 +68,7 @@ See [flipper-app/README.md](flipper-app/README.md) for the full button map and m
 
 ### 1. Install the Flipper app
 
-Download `flipper-agent-buddy-0.7.0.fap` from the [v0.7.0 release](https://github.com/MrDaila007/flipper-agent-buddy/releases/tag/v0.7.0) or build from source:
+Download `flipper-agent-buddy-1.0.0.fap` from the [v1.0.0 release](https://github.com/MrDaila007/flipper-agent-buddy/releases/tag/v1.0.0) or build from source:
 
 ```bash
 cd flipper-app && ufbt build

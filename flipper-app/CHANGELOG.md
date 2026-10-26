@@ -1,4 +1,4 @@
-## v0.7.0 — 2026-10-26
+## v1.0.0 — 2026-10-26
 
 - Context-driven character animations (Working, Compacting, Denied, Stressed, Overloaded, Critical, RateLimited).
 - Ctx / Lim usage meters when the host reports context pressure.
@@ -42,7 +42,7 @@
 ## v0.1
 
 - Initial release with physical remote control, haptic feedback, USB/BLE transport, and Claude Code plugin integration.
-# 0.7 — Flipper Agent Buddy
+# 1.0 — Flipper Agent Buddy
 
 - Rebrand the universal FAP as **Agent Buddy** while preserving the app ID and
   persisted settings path for in-place upgrades.

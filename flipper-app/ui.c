@@ -1233,7 +1233,7 @@ static int info_menu_step(int from, int delta) {
 
 static const char* about_lines[] = {
     "Flipper Agent Buddy",
-    "v0.7",
+    "v1.0",
     "Universal agent control",
     "USB/BLE + Desktop BLE",
     "MIT open source",

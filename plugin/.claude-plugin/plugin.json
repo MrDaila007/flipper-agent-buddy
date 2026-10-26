@@ -1,7 +1,7 @@
 {
   "name": "flipper-agent-buddy-claude",
   "description": "Claude Code adapter for Flipper Agent Buddy: permissions, status, and physical controls over USB or BLE.",
-  "version": "0.7.0",
+  "version": "1.0.0",
   "author": {
     "name": "MrDaila007"
   },
