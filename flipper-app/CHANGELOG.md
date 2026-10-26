@@ -1,4 +1,4 @@
-## v0.7 (unreleased)
+## v0.7.0 — 2026-10-26
 
 - Context-driven character animations (Working, Compacting, Denied, Stressed, Overloaded, Critical, RateLimited).
 - Ctx / Lim usage meters when the host reports context pressure.
