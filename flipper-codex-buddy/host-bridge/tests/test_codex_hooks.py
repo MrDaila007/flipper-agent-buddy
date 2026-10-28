@@ -3,6 +3,7 @@
 import importlib.util
 import io
 import json
+import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock
 
@@ -16,6 +17,9 @@ SCRIPTS = Path(__file__).parents[2] / "scripts"
 
 def load_script(name: str):
     path = SCRIPTS / name
+    scripts_dir = str(SCRIPTS)
+    if scripts_dir not in sys.path:
+        sys.path.insert(0, scripts_dir)
     spec = importlib.util.spec_from_file_location(path.stem.replace("-", "_"), path)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None

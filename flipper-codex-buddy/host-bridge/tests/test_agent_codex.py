@@ -104,6 +104,12 @@ class AppServer:
                         if turn["id"] == params["turnId"]:
                             turn["status"] = "interrupted"
                 result = {}
+            elif method == "skills/list":
+                result = {"data": []}
+            elif method == "account/rateLimits/read":
+                result = {}
+            elif method == "thread/compact/start":
+                result = {}
             else:
                 pytest.fail(f"Unexpected method: {method}")
             # Notifications must not be confused with command results.
@@ -265,7 +271,7 @@ async def test_overview_counts_sessions_without_requiring_navigation(app_server)
     send = AsyncMock()
     control = AgentControl(client, send)
     await control.refresh()
-    assert control.menu == ["Attention queue"]
+    assert control.menu == ["Attention queue", "/compact", "/interrupt"]
     assert client.selected_id is None
     assert len(control.sessions) == 92
     assert len(send.call_args_list[0].args[0]) < 2048
